@@ -1149,14 +1149,20 @@ select {
 
 <!-- ADMIN PANEL -->
 <div id="admin-panel">
-    <!-- TOPBAR -->
-    <div class="topbar glass-ui">
-        <h2>All InfoZone</h2>
-        <div class="top-actions">
-            <button id="about-btn" class="about-toggle-btn" title="About"><i class="fas fa-info"></i></button>
-            <button class="logout-btn" id="logout-button" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
-        </div>
+   <!-- TOPBAR -->
+<div class="topbar glass-ui">
+    <h2>All InfoZone</h2>
+    <div class="top-actions">
+        <!-- ১. নতুন সিকিউর মাস্টার অ্যাপ বাটন -->
+        <button id="master-app-btn" class="about-toggle-btn" title="Secure Master App" 
+                style="border-color: #00ff88; color: #00ff88; margin-right: 5px;">
+            <i class="fas fa-shield-alt"></i>
+        </button>
+
+        <button id="about-btn" class="about-toggle-btn" title="About"><i class="fas fa-info"></i></button>
+        <button class="logout-btn" id="logout-button" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
     </div>
+</div>
 
     <div class="content" id="content">
         <!-- DASHBOARD PAGE -->
@@ -2061,9 +2067,9 @@ select {
 <script>
     let auth, db; 
     let customBotData = [];
-let currentSharedData = null;  
-var isRedirectingToMaster = false;
+let currentSharedData = null;
     document.addEventListener('DOMContentLoaded', function() {
+    
         const firebaseConfig = {
             apiKey: "AIzaSyAXSLgGP_fEOblHAqf1bGU5ENkUckmPnm4",
             authDomain: "all-info-f4fd6.firebaseapp.com",
@@ -2072,6 +2078,22 @@ var isRedirectingToMaster = false;
             messagingSenderId: "622193874862",
             appId: "1:622193874862:web:aff830d0cfa9b93b875a3f"
         };
+        // Master App Button Click Logic
+const masterBtn = document.getElementById('master-app-btn');
+if(masterBtn) {
+    masterBtn.addEventListener('click', function() {
+        // ১. বাটন ক্লিক করলে আমরা Kodular কে সিগন্যাল পাঠাবো
+        if (window.AppInventor) {
+            // "REQ_MASTER_APP" হলো আমাদের গোপন সংকেত
+            window.AppInventor.setWebViewString("REQ_MASTER_APP");
+        } else {
+            // যদি ব্রাউজারে টেস্ট করেন
+            alert("This feature works inside the Android App only with Security!");
+            // টেস্টিং এর জন্য সরাসরি ওপেন করতে পারেন (অপশনাল)
+            // window.location.href = "https://master-app-v1.vercel.app/";
+        }
+    });
+}
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         auth = firebase.auth(); db = firebase.firestore();
         
@@ -5090,25 +5112,7 @@ window.payHisabDPS = async function(id, type) {
 async function processUserMessage() { 
             const text = chatInput.value.trim(); if(!text) return; 
             const lowerText = text.toLowerCase(); chatInput.value = '';
-            // --- MASTER ADMIN COMMAND (PIN/FINGERPRINT) ---
-if (lowerText === 'master app' || lowerText === 'admin panel') {
-    
-    // ১. ফ্ল্যাগ অন করা (যাতে আনলক করার পর অ্যাপ বোঝে কোথায় যাবে)
-    isRedirectingToMaster = true;
-
-    // ২. মেসেজ দেওয়া
-    addMessage('bot', "🔐 Authentication Required! Please verify your PIN or Fingerprint.");
-
-    // ৩. ফিঙ্গারপ্রিন্ট স্ক্যানার চালু করা (Kodular এর জন্য)
-    if (window.AppInventor && appLockData && appLockData.fingerprintEnabled) {
-        window.AppInventor.setWebViewString("SCAN_FINGERPRINT_LOCK");
-    }
-
-    // ৪. আপনার অ্যাপের মেইন লক স্ক্রিন ওপেন করা
-    showLockScreen(); 
-    
-    return;
-}
+            
            // এই ব্লকের ভেতর যে কমান্ডগুলো থাকবে, সেগুলো চ্যাট বাবল হিসেবে দেখা যাবে না
 if(lowerText === 'tools') {
     document.getElementById('moana-tools-modal').style.display = 'flex';
@@ -5383,20 +5387,6 @@ window.addEventListener('click', function(e) {
     });
 // --- সব ফিঙ্গারপ্রিন্ট লজিক এখন একটি ফাংশনে (সংশোধিত) ---
 function onFingerprintSuccess() {
-// 👇👇👇 নতুন কোড শুরু 👇👇👇
-    if (isRedirectingToMaster === true) {
-        document.getElementById('app-lock-screen').style.display = 'none';
-        isRedirectingToMaster = false; // রিসেট
-        
-        addMessage('bot', "✅ Fingerprint Verified! Redirecting... 🚀");
-        
-        setTimeout(() => {
-            // ⚠️ আপনার মাস্টার অ্যাপের লিংক
-            window.location.href = "https://master-app-v1.vercel.app"; 
-        }, 1000);
-        return;
-    }
-    // 👆👆👆 নতুন কোড শেষ 👆👆👆
     const lockScreen = document.getElementById('app-lock-screen');
     const apiModal = document.getElementById('api-settings-modal');
     
@@ -5759,18 +5749,6 @@ function unlockApp() {
     if(inputVal === appLockData.lockValue) {
         document.getElementById('app-lock-screen').style.display = 'none';
         pinInput.value = '';
-        // 👇👇👇 নতুন কোড শুরু 👇👇👇
-        if (isRedirectingToMaster === true) {
-            isRedirectingToMaster = false; // রিসেট
-            addMessage('bot', "✅ Identity Verified! Redirecting to Master Panel... 🚀");
-            
-            setTimeout(() => {
-                // ⚠️ আপনার মাস্টার অ্যাপের লিংক
-                window.location.href = "https://master-app-v1.vercel.app"; 
-            }, 1000);
-            return;
-        }
-        // 👆👆👆 নতুন কোড শেষ 👆👆👆
         // একবার আনলক হলে সেশন সেভ রাখা (ঐচ্ছিক)
         sessionStorage.setItem('appUnlocked', 'true');
     } else {
