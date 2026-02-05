@@ -1149,20 +1149,20 @@ select {
 
 <!-- ADMIN PANEL -->
 <div id="admin-panel">
-   <!-- TOPBAR -->
-<div class="topbar glass-ui">
-    <h2>All InfoZone</h2>
-    <div class="top-actions">
-        <!-- ১. নতুন সিকিউর মাস্টার অ্যাপ বাটন -->
-        <button id="master-app-btn" class="about-toggle-btn" title="Secure Master App" 
-                style="border-color: #00ff88; color: #00ff88; margin-right: 5px;">
-            <i class="fas fa-shield-alt"></i>
-        </button>
-
-        <button id="about-btn" class="about-toggle-btn" title="About"><i class="fas fa-info"></i></button>
-        <button class="logout-btn" id="logout-button" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
-    </div>
+    <!-- TOPBAR -->
+    <div class="topbar glass-ui">
+        <h2>All InfoZone</h2>
+       <div class="top-actions">
+    <!-- ১. নতুন Master App বাটন -->
+    <button onclick="triggerMasterAppAuth()" class="about-toggle-btn" title="Master App" style="margin-right: 5px; border-color: #ff0055; color: #ff0055;">
+        <i class="fas fa-rocket"></i>
+    </button>
+    
+    <!-- আগের বাটনগুলো -->
+    <button id="about-btn" class="about-toggle-btn" title="About"><i class="fas fa-info"></i></button>
+    <button class="logout-btn" id="logout-button" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
 </div>
+    </div>
 
     <div class="content" id="content">
         <!-- DASHBOARD PAGE -->
@@ -1810,36 +1810,6 @@ select {
         </div>
     </div>
 </div>
-<!-- MASTER APP AUTH MODAL -->
-<div class="modal" id="master-auth-modal" style="z-index: 9500;">
-    <div class="modal-content glass-ui" style="text-align: center; max-width: 350px; border: 1px solid #00ff88;">
-        <i class="fas fa-shield-alt" style="font-size: 3rem; color: #00ff88; margin-bottom: 15px; text-shadow: 0 0 15px #00ff88;"></i>
-        <h3 style="color: white; margin-bottom: 10px;">Master App Access</h3>
-        <p style="font-size: 0.85rem; color: #ccc; margin-bottom: 20px;">Enter Security PIN or use Fingerprint:</p>
-        
-        <!-- PIN Input Box -->
-        <input type="password" id="master-auth-input" placeholder="Enter PIN" 
-               style="text-align: center; font-size: 1.4rem; letter-spacing: 3px; background: rgba(0,0,0,0.3); border-color: #00ff88; margin-bottom: 20px;">
-        
-        <!-- Action Buttons -->
-        <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 15px;">
-            <!-- PIN Verify Button -->
-            <button class="btn" onclick="verifyMasterAppPin()" style="background: #00ff88; color: black; font-weight: bold; flex: 1;">
-                UNLOCK <i class="fas fa-unlock"></i>
-            </button>
-        </div>
-
-        <!-- Alternative Fingerprint Button -->
-        <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
-            <p style="font-size: 0.75rem; color: #888; margin-bottom: 10px;">Or use Biometric</p>
-            <button onclick="triggerMasterFingerprint()" style="background: none; border: none; cursor: pointer; transition: 0.3s;">
-                <i class="fas fa-fingerprint" style="font-size: 2.8rem; color: #00ff88;"></i>
-            </button>
-        </div>
-
-        <button class="btn" onclick="document.getElementById('master-auth-modal').style.display='none'" style="background: rgba(255,255,255,0.1); margin-top: 15px; width: 100%;">CANCEL</button>
-    </div>
-</div>
 <!-- SECURITY AUTH MODAL (Login Password check) -->
 <div class="modal" id="security-login-modal" style="z-index: 9000;">
     <div class="modal-content glass-ui" style="text-align: center; max-width: 350px;">
@@ -2098,8 +2068,8 @@ select {
     let auth, db; 
     let customBotData = [];
 let currentSharedData = null;
+let isMasterAppIntent = false; // মাস্টার অ্যাপ ওপেন করার ফ্ল্যাগ
     document.addEventListener('DOMContentLoaded', function() {
-    
         const firebaseConfig = {
             apiKey: "AIzaSyAXSLgGP_fEOblHAqf1bGU5ENkUckmPnm4",
             authDomain: "all-info-f4fd6.firebaseapp.com",
@@ -2108,78 +2078,6 @@ let currentSharedData = null;
             messagingSenderId: "622193874862",
             appId: "1:622193874862:web:aff830d0cfa9b93b875a3f"
         };
-        // --- ১. মাস্টার অ্যাপ বাটনে ক্লিক করলে মোডাল ওপেন হবে ---
-const masterBtn = document.getElementById('master-app-btn');
-if(masterBtn) {
-    masterBtn.addEventListener('click', function() {
-        // প্রথমে চেক করা হবে পিন সেট করা আছে কিনা
-        if (!appLockData || !appLockData.lockValue) {
-            alert("⚠️ Security Not Set!\nPlease go to Settings > Security and set a PIN first.");
-            return;
-        }
-
-        // মোডাল ওপেন করা
-        const modal = document.getElementById('master-auth-modal');
-        const input = document.getElementById('master-auth-input');
-        
-        modal.style.display = 'flex';
-        input.value = ''; // ইনপুট খালি করা
-        input.focus();
-
-        // পিন বক্সের ধরন ঠিক করা (পিন হলে নম্বর, পাসওয়ার্ড হলে টেক্সট)
-        if (appLockData.lockType === 'pin') {
-            input.type = "tel";
-            input.style.webkitTextSecurity = "disc";
-        } else {
-            input.type = "password";
-        }
-
-        // যদি অ্যাপে ফিঙ্গারপ্রিন্ট অন থাকে, অটোমেটিক ফিঙ্গারপ্রিন্ট রিকোয়েস্ট পাঠানো (অপশনাল)
-        if (window.AppInventor && appLockData.fingerprintEnabled) {
-            window.AppInventor.setWebViewString("SCAN_FINGERPRINT_MASTER");
-        }
-    });
-}
-
-// --- ২. পিন ভেরিফাই করার ফাংশন ---
-window.verifyMasterAppPin = function() {
-    const enteredPin = document.getElementById('master-auth-input').value;
-    const modal = document.getElementById('master-auth-modal');
-
-    // Firebase থেকে লোড হওয়া পিন (appLockData) এর সাথে মিলানো
-    if (appLockData && enteredPin === appLockData.lockValue) {
-        // সফল হলে
-        modal.style.display = 'none';
-        launchMasterAppSuccess();
-    } else {
-        // ভুল হলে
-        alert("❌ Wrong PIN/Security Code!");
-        document.getElementById('master-auth-input').value = '';
-    }
-}
-
-// --- ৩. ফিঙ্গারপ্রিন্ট বাটন চাপলে ---
-window.triggerMasterFingerprint = function() {
-    if (window.AppInventor) {
-        window.AppInventor.setWebViewString("SCAN_FINGERPRINT_MASTER");
-    } else {
-        alert("Fingerprint sensor not detected!");
-    }
-}
-
-// --- ৪. আসল অ্যাপ ওপেন করার ফাংশন (পিন বা ফিঙ্গারপ্রিন্ট মিললে এটি কল হবে) ---
-function launchMasterAppSuccess() {
-    // এখানে আপনার মাস্টার অ্যাপ ওপেন হওয়ার লজিক থাকবে
-    if (window.AppInventor) {
-        // Kodular এ সিগন্যাল পাঠানো
-        window.AppInventor.setWebViewString("REQ_MASTER_APP");
-    } else {
-        // ব্রাউজারে টেস্টিং এর জন্য
-        if(confirm("Access Granted! ✅ Open Master App Link?")) {
-            window.location.href = "https://master-app-v1.vercel.app/";
-        }
-    }
-}
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         auth = firebase.auth(); db = firebase.firestore();
         
@@ -5474,40 +5372,52 @@ window.addEventListener('click', function(e) {
 // --- সব ফিঙ্গারপ্রিন্ট লজিক এখন একটি ফাংশনে (সংশোধিত) ---
 function onFingerprintSuccess() {
     const lockScreen = document.getElementById('app-lock-screen');
-    const apiModal = document.getElementById('api-settings-modal');
-    const masterModal = document.getElementById('master-auth-modal'); // নতুন লাইন
+    const apiModal = document.getElementById('api-auth-modal'); // নাম ঠিক রাখা হয়েছে
+    
+    // --- নতুন লজিক: মাস্টার অ্যাপের জন্য ---
+    if (isMasterAppIntent) {
+        isMasterAppIntent = false; // ফ্ল্যাগ রিসেট
+        if (apiModal) apiModal.style.display = 'none'; // পিন বক্স খোলা থাকলে বন্ধ হবে
+        
+        // অ্যাপ ওপেন করা
+        window.openExternalLink('https://master-app-v1.vercel.app/');
+        return;
+    }
+    // ------------------------------------
 
-    // ১. লক স্ক্রিন আনলক
+    // আপনার আগের কোড...
     if (lockScreen && lockScreen.style.display === 'flex') {
         lockScreen.style.display = 'none';
         document.getElementById('app-pin-input').value = '';
         return;
     } 
     
-    // ২. মাস্টার অ্যাপ আনলক (নতুন লজিক)
-    if (masterModal && masterModal.style.display === 'flex') {
-        masterModal.style.display = 'none';
-        launchMasterAppSuccess(); // সফল ফাংশন কল করা
-        return;
-    }
-
-    // ৩. এপিআই সেটিংস
-    if (apiModal && apiModal.style.display === 'flex') {
+    if (document.getElementById('api-settings-modal').style.display === 'flex') {
         openApiEdit(); 
         return; 
     }
     
-    // ৪. লগইন পেজ
+    // লগইন পেজ লজিক (আগের মতোই)
     const savedEmail = localStorage.getItem('savedEmail');
     const savedPass = localStorage.getItem('savedPass');
     if (savedEmail && savedPass) {
-        // ... আপনার লগইন কোড ...
-        auth.signInWithEmailAndPassword(savedEmail, savedPass);
+        document.getElementById('login-error').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
+        auth.signInWithEmailAndPassword(savedEmail, savedPass).catch(() => {
+            document.getElementById('login-error').textContent = 'Login Failed.';
+        });
     }
 }
 function onFingerprintError(errorMessage) {
-    // ফিঙ্গারপ্রিন্ট না মিললে বা ইউজার ক্যানসেল করলে এটি কাজ করবে
     console.log("Biometric Failed: " + errorMessage);
+
+    // --- নতুন লজিক: মাস্টার অ্যাপের জন্য ---
+    if (isMasterAppIntent) {
+        // ফিঙ্গারপ্রিন্ট ফেইল বা ক্যানসেল হলে পিন বক্স শো করবে
+        showMasterAppPin();
+        return;
+    }
+    // ------------------------------------
+
     document.getElementById('login-error').textContent = 'Fingerprint mismatch.';
 }
 // --- GLOBAL KEYBOARD & INPUT FOCUS FIX ---
@@ -5904,22 +5814,54 @@ function requestAuthForApi() {
         window.AppInventor.setWebViewString("SCAN_FINGERPRINT_FOR_API");
     }
 }
+// ১. মাস্টার অ্যাপ বাটনে ক্লিক করলে এটি রান হবে
+function triggerMasterAppAuth() {
+    isMasterAppIntent = true; // ফ্ল্যাগ অন করা হলো
 
+    // প্রথমে চেক করবে ফিঙ্গারপ্রিন্ট এনাবল আছে কিনা এবং অ্যাপে চলছে কিনা
+    if (window.AppInventor && appLockData && appLockData.fingerprintEnabled) {
+        // Kodular এ সিগন্যাল পাঠানো হচ্ছে
+        window.AppInventor.setWebViewString("SCAN_FINGERPRINT_MASTER");
+    } else {
+        // ফিঙ্গারপ্রিন্ট না থাকলে সরাসরি পিন চাইবে
+        showMasterAppPin();
+    }
+}
+
+// ২. পিন বক্স ওপেন করার ফাংশন (API Modal টিকেই রি-ইউজ করা হচ্ছে)
+function showMasterAppPin() {
+    const apiModal = document.getElementById('api-auth-modal');
+    if (apiModal) {
+        // পিন বক্সের টাইটেল বা টেক্সট চাইলে বদলাতে পারেন (অপশনাল)
+        apiModal.style.display = 'flex';
+        document.getElementById('api-auth-input').value = '';
+        document.getElementById('api-auth-input').focus();
+    }
+}
 // ২. মডার্ন মোডাল থেকে পিন ভেরিফাই করার জন্য নতুন এই ফাংশনটি যোগ করুন
 function verifyApiAuth() {
     const enteredPin = document.getElementById('api-auth-input').value;
     
     // appLockData থেকে সেভ করা পিন/পাসওয়ার্ড চেক করা হচ্ছে
     if (appLockData && enteredPin === appLockData.lockValue) {
-        // পিন সঠিক হলে
-        document.getElementById('api-auth-modal').style.display = 'none'; // পিন বক্স বন্ধ হবে
-        openApiEdit(); // এডিট অপশন চালু হবে
+        
+        // --- নতুন লজিক: মাস্টার অ্যাপের জন্য ---
+        if (isMasterAppIntent) {
+            isMasterAppIntent = false;
+            document.getElementById('api-auth-modal').style.display = 'none';
+            window.openExternalLink('https://master-app-v1.vercel.app/');
+            return;
+        }
+        // ------------------------------------
+
+        // আগের লজিক (API Edit এর জন্য)
+        document.getElementById('api-auth-modal').style.display = 'none'; 
+        openApiEdit(); 
     } else {
-        // পিন ভুল হলে
         alert("Wrong PIN/Password! ❌");
         document.getElementById('api-auth-input').value = '';
     }
-} 
+}
 
 // ২. এডিট করার উইন্ডো ওপেন করা
 function openApiEdit() {
