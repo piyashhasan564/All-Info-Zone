@@ -2660,61 +2660,73 @@ addInfoForm.addEventListener('submit', async (e) => {
             await saveInfoToDb(user, cat, titleInput, contentToSave); 
         } 
 
-        // --- CASE B: MAIL INFO (Manual Duplicate Check - FIXED RED BORDER) ---
-        else if (cat === 'mail') { 
-            let finalEntries = []; 
-            let emailCounts = {}; 
-            let hasDuplicate = false; 
+        // --- CASE B: MAIL INFO (Updated with Global Database Check) ---
+else if (cat === 'mail') { 
+    let finalEntries = []; 
+    let localEmailCounts = {}; // এখনকার ফর্মের ডুপ্লিকেট চেক করার জন্য
+    let hasDuplicate = false; 
+    let duplicateReason = ""; // এরর মেসেজ দেখানোর জন্য
 
-            const mailRows = document.querySelectorAll('.mail-input-group');
+    // ১. ডাটাবেসের সব আগের মেইল নিয়ে আসা
+    const dbEmails = getGlobalExistingEmails();
 
-            // ধাপ ১: আগে গুনে দেখা এবং বর্ডার রিসেট করা
-            mailRows.forEach(row => {
-                const input = row.querySelector('.mail-email');
-                
-                // আগের লাল বর্ডার মুছে ফেলা (রিসেট)
-                input.style.setProperty('border', '1px solid rgba(255, 255, 255, 0.1)', 'important');
-                input.style.boxShadow = 'none';
+    const mailRows = document.querySelectorAll('.mail-input-group');
 
-                const mEmail = input.value.trim().toLowerCase();
-                if (mEmail) {
-                    emailCounts[mEmail] = (emailCounts[mEmail] || 0) + 1;
-                }
-            });
+    // ধাপ ১: লোকাল কাউন্ট করা (ফর্মের ভেতরেই ডুপ্লিকেট আছে কিনা)
+    mailRows.forEach(row => {
+        const input = row.querySelector('.mail-email');
+        const mEmail = input.value.trim().toLowerCase();
+        
+        // রিসেট বর্ডার
+        input.style.setProperty('border', '1px solid rgba(255, 255, 255, 0.1)', 'important');
+        input.style.boxShadow = 'none';
 
-            // ধাপ ২: ডাটা তৈরি এবং ডুপ্লিকেট মার্ক করা
-            mailRows.forEach(row => { 
-                const emailInput = row.querySelector('.mail-email');
-                const passInput = row.querySelector('.mail-password');
-                
-                const mEmail = emailInput.value.trim(); 
-                const mPass = passInput.value.trim(); 
-                const lowerEmail = mEmail.toLowerCase();
-
-                // ডুপ্লিকেট হলে লাল বর্ডার (Force Important)
-                if (mEmail && emailCounts[lowerEmail] > 1) {
-                    // [FIXED] বর্ডার এবং শ্যাডো জোর করে সেট করা হচ্ছে
-                    emailInput.style.setProperty('border', '2px solid #ff4d4d', 'important');
-                    emailInput.style.setProperty('box-shadow', '0 0 10px rgba(255, 77, 77, 0.5)', 'important');
-                    
-                    hasDuplicate = true;
-                }
-
-                if (mEmail || mPass) {
-                     finalEntries.push(`Email: ${mEmail} | Password: ${mPass}`); 
-                }
-            }); 
-
-            // ধাপ ৩: ডুপ্লিকেট থাকলে সেভ বন্ধ করা
-            if (hasDuplicate) {
-                alert("⚠️ Duplicate Emails Found!\n\nI have highlighted them with RED Glow.\nPlease check and delete the wrong ones manually.");
-                submitBtn.disabled = false; 
-                submitBtn.innerHTML = editingDocId ? 'Update Now' : 'Add Information'; 
-                return; 
-            }
-
-            await saveInfoToDb(user, 'mail', titleInput, finalEntries.join('|||')); 
+        if (mEmail) {
+            localEmailCounts[mEmail] = (localEmailCounts[mEmail] || 0) + 1;
         }
+    });
+
+    // ধাপ ২: ভ্যালিডেশন চেক (লোকাল + গ্লোবাল ডাটাবেস)
+    mailRows.forEach(row => { 
+        const emailInput = row.querySelector('.mail-email');
+        const passInput = row.querySelector('.mail-password');
+        
+        const mEmail = emailInput.value.trim(); 
+        const mPass = passInput.value.trim(); 
+        const lowerEmail = mEmail.toLowerCase();
+
+        // কন্ডিশন ১: যদি ফর্মের ভেতরেই একই মেইল দুইবার থাকে
+        if (mEmail && localEmailCounts[lowerEmail] > 1) {
+            emailInput.style.setProperty('border', '2px solid #ff4d4d', 'important');
+            emailInput.style.setProperty('box-shadow', '0 0 10px rgba(255, 77, 77, 0.5)', 'important');
+            hasDuplicate = true;
+            duplicateReason = "Duplicate email found in current input list!";
+        }
+
+        // কন্ডিশন ২: যদি মেইলটি ডাটাবেসে (অন্য কোনো ফাইলে) আগে থেকেই থাকে
+        // (তবে এডিট করার সময় এই চেক বাদ দেওয়া যেতে পারে, যদি আপনি চান)
+        if (mEmail && dbEmails.has(lowerEmail) && !editingDocId) {
+            emailInput.style.setProperty('border', '2px solid #FFA500', 'important'); // কমলা বর্ডার
+            emailInput.style.setProperty('box-shadow', '0 0 10px rgba(255, 165, 0, 0.5)', 'important');
+            hasDuplicate = true;
+            duplicateReason = `This email already exists in your database!\n(${mEmail})`;
+        }
+
+        if (mEmail || mPass) {
+             finalEntries.push(`Email: ${mEmail} | Password: ${mPass}`); 
+        }
+    }); 
+
+    // ধাপ ৩: ডুপ্লিকেট পাওয়া গেলে সেভ আটকানো
+    if (hasDuplicate) {
+        alert("⚠️ Action Blocked!\n" + duplicateReason + "\n\nRed/Orange Highlighted emails are problematic.");
+        submitBtn.disabled = false; 
+        submitBtn.innerHTML = editingDocId ? 'Update Now' : 'Add Information'; 
+        return; 
+    }
+
+    await saveInfoToDb(user, 'mail', titleInput, finalEntries.join('|||')); 
+}
 
         // --- CASE C: TEXT / LINK ---
         else { 
@@ -3295,6 +3307,29 @@ window.addEventListener('click', e => {
             </tr>`; 
         }); 
     } 
+}
+// --- EXISTING MAIL CHECKER FUNCTION ---
+function getGlobalExistingEmails() {
+    let emailSet = new Set(); // Set ব্যবহার করছি যাতে ডুপ্লিকেট না থাকে এবং সার্চ ফাস্ট হয়
+    
+    // ১. সব ইনফো লুপ করা
+    allInformation.forEach(doc => {
+        if (doc.category === 'mail' && doc.fullContent) {
+            // ২. মেইল এন্ট্রিগুলো আলাদা করা (||| দিয়ে)
+            const entries = doc.fullContent.split('|||');
+            
+            entries.forEach(entry => {
+                // ৩. প্রতিটি এন্ট্রি থেকে শুধু ইমেইল বের করা
+                // আপনার ফরম্যাট: "Email: abc@gmail.com | Password: 123"
+                const parts = entry.split(' | Password: ');
+                if(parts[0]) {
+                    const cleanEmail = parts[0].replace('Email: ', '').trim().toLowerCase();
+                    if(cleanEmail) emailSet.add(cleanEmail);
+                }
+            });
+        }
+    });
+    return emailSet;
 }
        function renderAllInfoPage() {
     const container = document.getElementById('all-info-list-container');
