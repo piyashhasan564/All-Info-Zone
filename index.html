@@ -2636,7 +2636,8 @@ addInfoForm.addEventListener('submit', async (e) => {
                 const apiMethod = (cat === 'photo') ? 'sendPhoto' : 'sendDocument'; 
                 const keyName = (cat === 'photo') ? 'photo' : 'document'; 
                 
-                formData.append(keyName, file); 
+                // ফাইলের অরিজিনাল নামসহ পাঠানো হচ্ছে
+formData.append(keyName, file, file.name);  
                 
                 const res = await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/${apiMethod}`, { method: 'POST', body: formData }); 
                 const data = await res.json(); 
@@ -3475,7 +3476,7 @@ function renderAllContactsPage() {
             } 
         }
 
-        // ফিক্সড: ইনফো মোডাল ওপেনার ফাংশন (MODIFIED FOR PRO MUSIC PLAYER)
+        // ফিক্সড: ইনফো মোডাল ওপেনার ফাংশন (টাইটেল দিয়ে ডাউনলোডের জন্য আপডেট করা হয়েছে)
 window.openInfoModal = async function(id) { 
     const i = allInformation.find(x => x.id === id); 
     if (!i) {
@@ -3495,21 +3496,12 @@ window.openInfoModal = async function(id) {
             infoModalBody.style.textAlign = 'left';
             infoModalBody.innerText = i.fullContent; 
             
-            // Footer Clear করুন
             infoModalFooter.innerHTML = '';
-
-            // বাটন তৈরি করুন
             const copyBtn = document.createElement('button');
             copyBtn.className = 'btn';
             copyBtn.style.cssText = "background: var(--success); color: black; font-weight: bold; width: 100%;";
             copyBtn.innerHTML = '<i class="fas fa-copy"></i> COPY TEXT';
-            
-            // ক্লিক করলে আমাদের নতুন universalCopy ফাংশন কল হবে
-            copyBtn.onclick = function() {
-                universalCopy(i.fullContent);
-            };
-
-            // বাটনটি ফুটারে যোগ করুন
+            copyBtn.onclick = function() { universalCopy(i.fullContent); };
             infoModalFooter.appendChild(copyBtn);
         }
         // --- LINK CATEGORY ---
@@ -3554,13 +3546,11 @@ window.openInfoModal = async function(id) {
             infoModalBody.innerHTML = mailHtml;
             infoModalFooter.innerHTML = `<button class="btn" style="background:var(--secondary); color:white;" onclick="downloadMailPDF('${i.id}')"><i class="fas fa-file-pdf"></i> Download PDF</button>`; 
         }
-        // --- MEDIA CATEGORIES (Photo, Video, Audio, File) ---
+        // --- MEDIA CATEGORIES (FIXED WITH CUSTOM DOWNLOADER) ---
         else if (['photo', 'video', 'audio', 'file'].includes(i.category)) { 
             
-            // সার্ভার চেক করা হচ্ছে
             const url = await getTelegramLink(i.fullContent); 
             
-            // যদি টেলিগ্রামে ফাইল না পাওয়া যায়
             if (!url) { 
                 infoModalBody.innerHTML = `
                     <div style="text-align:center; padding:20px;">
@@ -3571,16 +3561,17 @@ window.openInfoModal = async function(id) {
                 return; 
             } 
 
-            // ফাইল পাওয়া গেলে ক্যাটাগরি অনুযায়ী শো করা
+            // এখানে downloadFileWithTitle ফাংশনটি কল করা হচ্ছে
+            const downloadBtnHtml = `<button class="btn" onclick="downloadFileWithTitle('${url}', '${i.title}')" style="width:100%; margin-top:10px; background:white; color:black; font-weight:bold;"><i class="fas fa-download"></i> Download with Title</button>`;
+
             if (i.category === 'photo') { 
                 infoModalBody.innerHTML = `<img src="${url}" style="max-width:100%; border-radius:10px; box-shadow:0 5px 15px rgba(0,0,0,0.5);">`; 
-                infoModalFooter.innerHTML = `<a href="${url}" target="_blank" class="btn" download>Download Image</a>`; 
+                infoModalFooter.innerHTML = downloadBtnHtml; 
             } 
             else if (i.category === 'video') { 
                 infoModalBody.innerHTML = `<video controls autoplay style="width:100%; border-radius:10px;"><source src="${url}" type="video/mp4"></video>`; 
-                infoModalFooter.innerHTML = `<a href="${url}" target="_blank" class="btn">Download Video</a>`; 
+                infoModalFooter.innerHTML = downloadBtnHtml; 
             } 
-            // *** AUDIO (Updated for Professional Player) ***
             else if (i.category === 'audio') { 
                 infoModalBody.innerHTML = `
                 <div style="padding:30px 20px; text-align:center;">
@@ -3594,12 +3585,11 @@ window.openInfoModal = async function(id) {
                         <i class="fas fa-play" style="margin-right:10px;"></i> PLAY NOW
                     </button>
                 </div>`; 
-                
-                infoModalFooter.innerHTML = `<a href="${url}" target="_blank" class="btn" style="background:rgba(255,255,255,0.1); border:none; width:100%; margin-top:10px;">Download Audio File</a>`; 
+                infoModalFooter.innerHTML = downloadBtnHtml; 
             } 
             else if (i.category === 'file') { 
                 infoModalBody.innerHTML = `<div style="text-align:center; padding:20px;"><i class="fas fa-file-alt" style="font-size:4rem; color:var(--primary);"></i><p style="margin-top:15px;">Document Ready</p></div>`; 
-                infoModalFooter.innerHTML = `<a href="${url}" target="_blank" class="btn">Open / Download File</a>`; 
+                infoModalFooter.innerHTML = downloadBtnHtml; 
             } 
         } 
     } catch (err) {
@@ -6533,23 +6523,73 @@ window.universalCopy = function(encodedText) {
         alert("Error: " + err);
     }
 };
-// টাইটেল অনুযায়ী ফাইল ডাউনলোড করার ফাংশন
+// টাইটেল দিয়ে ফাইল ডাউনলোড করার সবথেকে শক্তিশালী পদ্ধতি (CodeTabs Proxy)
 window.downloadFileWithTitle = async function(url, filename) {
+    const btn = event.target;
+    const oldText = btn.innerHTML;
+    
+    // বাটনে লোডিং এনিমেশন
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Downloading...';
+    btn.disabled = true;
+
     try {
-        const response = await fetch(url);
+        // ১. CodeTabs প্রক্সি ব্যবহার (এটি ফাইল ডাউনলোডের জন্য বেশি কার্যকর)
+        const proxyUrl = "https://api.codetabs.com/v1/proxy?quest=" + url;
+        
+        const response = await fetch(proxyUrl);
+        
+        if (!response.ok) throw new Error("Network blocked");
+
         const blob = await response.blob();
+        
+        // ২. ফাইলটি যদি জঞ্জাল (Error JSON) হয়, তা চেক করা
+        if (blob.type.includes('application/json') && blob.size < 200) {
+             throw new Error("Proxy error");
+        }
+
+        // ৩. এক্সটেনশন ঠিক করা
+        let extension = "html"; // ডিফল্ট
+        const mime = blob.type;
+
+        if (mime.includes('pdf')) extension = 'pdf';
+        else if (mime.includes('image/jpeg')) extension = 'jpg';
+        else if (mime.includes('image/png')) extension = 'png';
+        else if (mime.includes('zip')) extension = 'zip';
+        else if (mime.includes('text/plain')) extension = 'txt';
+        else if (mime.includes('msword')) extension = 'docx';
+        
+        // ৪. নামের সাথে এক্সটেনশন না থাকলে লাগিয়ে দেওয়া
+        let finalFileName = filename;
+        if (!finalFileName.toLowerCase().includes('.')) {
+            finalFileName = finalFileName + '.' + extension;
+        }
+
+        // ৫. জোর করে নতুন নাম দিয়ে ডাউনলোড করানো
         const blobUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.style.display = 'none';
         a.href = blobUrl;
-        a.download = filename; // আপনার দেওয়া টাইটেল এখানে সেট হবে
+        a.download = finalFileName; // এই নামেই ডাউনলোড হবে
         document.body.appendChild(a);
+        
         a.click();
-        window.URL.revokeObjectURL(blobUrl);
-        document.body.removeChild(a);
+        
+        // ক্লিন করা
+        setTimeout(() => {
+            window.URL.revokeObjectURL(blobUrl);
+            document.body.removeChild(a);
+        }, 100);
+
     } catch (e) {
-        // যদি কোনো কারণে ফেল করে, তবে সরাসরি লিঙ্কে ওপেন হবে
+        console.error("Rename failed:", e);
+        
+        // ৬. যদি কোনোভাবেই রিনেম করা না যায়, তবে অরিজিনাল ফাইলটি ডাউনলোড হবে
+        alert("Security blocked renaming. Downloading original file.");
         window.open(url, '_blank');
+        
+    } finally {
+        // বাটন রিসেট
+        btn.innerHTML = oldText;
+        btn.disabled = false;
     }
 }
 // --- প্রফেশনাল এপিআই জেনারেশন লজিক ---
