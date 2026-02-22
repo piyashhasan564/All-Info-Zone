@@ -6523,73 +6523,91 @@ window.universalCopy = function(encodedText) {
         alert("Error: " + err);
     }
 };
-// টাইটেল দিয়ে ফাইল ডাউনলোড করার সবথেকে শক্তিশালী পদ্ধতি (CodeTabs Proxy)
-window.downloadFileWithTitle = async function(url, filename) {
-    const btn = event.target;
+// টাইটেল দিয়ে ফাইল ডাউনলোড করার সবথেকে শক্তিশালী পদ্ধতি (APK Fix + 100% Working)
+window.downloadFileWithTitle = async function(btnElement, url, filename) {
+    // ১. বাটন এলিমেন্ট ধরা
+    const btn = btnElement;
+    if (!btn || btn.disabled) return;
+
     const oldText = btn.innerHTML;
     
-    // বাটনে লোডিং এনিমেশন
+    // ২. লোডিং এনিমেশন
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Downloading...';
+    btn.style.opacity = "0.7";
     btn.disabled = true;
 
     try {
-        // ১. CodeTabs প্রক্সি ব্যবহার (এটি ফাইল ডাউনলোডের জন্য বেশি কার্যকর)
+        // ৩. প্রক্সি দিয়ে ফাইল আনা
         const proxyUrl = "https://api.codetabs.com/v1/proxy?quest=" + url;
-        
         const response = await fetch(proxyUrl);
         
         if (!response.ok) throw new Error("Network blocked");
 
-        const blob = await response.blob();
+        // ৪. 'raw' ব্লব ডাটা নেওয়া
+        const rawBlob = await response.blob();
         
-        // ২. ফাইলটি যদি জঞ্জাল (Error JSON) হয়, তা চেক করা
-        if (blob.type.includes('application/json') && blob.size < 200) {
+        // ৫. এরর চেক করা (যদি ফাইল না থাকে)
+        if (rawBlob.type.includes('application/json') && rawBlob.size < 200) {
              throw new Error("Proxy error");
         }
 
-        // ৩. এক্সটেনশন ঠিক করা
-        let extension = "html"; // ডিফল্ট
-        const mime = blob.type;
-
-        if (mime.includes('pdf')) extension = 'pdf';
-        else if (mime.includes('image/jpeg')) extension = 'jpg';
-        else if (mime.includes('image/png')) extension = 'png';
-        else if (mime.includes('zip')) extension = 'zip';
-        else if (mime.includes('text/plain')) extension = 'txt';
-        else if (mime.includes('msword')) extension = 'docx';
-        
-        // ৪. নামের সাথে এক্সটেনশন না থাকলে লাগিয়ে দেওয়া
+        // --- [MAIN FIX FOR APK] ---
+        let finalBlob = rawBlob;
         let finalFileName = filename;
-        if (!finalFileName.toLowerCase().includes('.')) {
-            finalFileName = finalFileName + '.' + extension;
-        }
 
-        // ৫. জোর করে নতুন নাম দিয়ে ডাউনলোড করানো
-        const blobUrl = window.URL.createObjectURL(blob);
+        // যদি নামের শেষে .apk থাকে অথবা ইউজার APK নামাতে চায়
+        if (filename.toLowerCase().endsWith('.apk')) {
+            // আমরা জোর করে MIME Type সেট করে দিচ্ছি যাতে ব্রাউজার ZIP না ভাবে
+            finalBlob = new Blob([rawBlob], { type: 'application/vnd.android.package-archive' });
+        } 
+        else {
+            // অন্য ফাইলের ক্ষেত্রে অটো এক্সটেনশন ডিটেকশন
+            if (!finalFileName.includes('.')) {
+                const mime = rawBlob.type;
+                let extension = "html"; 
+
+                if (mime.includes('pdf')) extension = 'pdf';
+                else if (mime.includes('image/jpeg')) extension = 'jpg';
+                else if (mime.includes('image/png')) extension = 'png';
+                else if (mime.includes('text/plain')) extension = 'txt';
+                else if (mime.includes('audio/mpeg')) extension = 'mp3';
+                else if (mime.includes('video/mp4')) extension = 'mp4';
+                // জিপ ফাইলের লজিক (APK বাদে অন্য জিপের জন্য)
+                else if (mime.includes('zip') || mime.includes('compressed')) extension = 'zip';
+                
+                finalFileName = finalFileName + '.' + extension;
+            }
+        }
+        // ---------------------------
+
+        // ৬. ডাউনলোড ট্রিগার করা
+        const blobUrl = window.URL.createObjectURL(finalBlob);
         const a = document.createElement('a');
         a.href = blobUrl;
-        a.download = finalFileName; // এই নামেই ডাউনলোড হবে
+        a.download = finalFileName;
         document.body.appendChild(a);
         
         a.click();
         
-        // ক্লিন করা
+        // ৭. ক্লিনআপ
         setTimeout(() => {
             window.URL.revokeObjectURL(blobUrl);
             document.body.removeChild(a);
         }, 100);
 
     } catch (e) {
-        console.error("Rename failed:", e);
-        
-        // ৬. যদি কোনোভাবেই রিনেম করা না যায়, তবে অরিজিনাল ফাইলটি ডাউনলোড হবে
-        alert("Security blocked renaming. Downloading original file.");
+        console.error("Download failed:", e);
+        alert("Direct download started (Auto-rename failed).");
+        // ফেইল করলে ডাইরেক্ট ওপেন হবে
         window.open(url, '_blank');
         
     } finally {
         // বাটন রিসেট
-        btn.innerHTML = oldText;
-        btn.disabled = false;
+        if(btn) {
+            btn.innerHTML = oldText;
+            btn.style.opacity = "1";
+            btn.disabled = false;
+        }
     }
 }
 // --- প্রফেশনাল এপিআই জেনারেশন লজিক ---
