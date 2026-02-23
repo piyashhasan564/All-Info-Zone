@@ -2621,12 +2621,18 @@ addInfoForm.addEventListener('submit', async (e) => {
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...'; 
 
     try { 
-        // --- CASE A: MEDIA FILES (Photo, Video, Audio, File) ---
+     // --- CASE A: MEDIA FILES (Photo, Video, Audio, File) ---
         if (['photo', 'video', 'audio', 'file'].includes(cat)) {
             const file = fileInput.files[0]; 
             let contentToSave = ""; 
+            let extractedExt = ""; // ফাইলের এক্সটেনশন রাখার জন্য
 
             if (file) {
+                // ফাইলের আসল এক্সটেনশন বের করা (যেমন .apk, .html)
+                if (cat === 'file' && file.name.includes('.')) {
+                    extractedExt = file.name.split('.').pop().toUpperCase();
+                }
+
                 // নতুন ফাইল আপলোড হচ্ছে
                 document.getElementById('upload-status').innerText = "Uploading to TG Cloud..."; 
                 const formData = new FormData(); 
@@ -2637,7 +2643,7 @@ addInfoForm.addEventListener('submit', async (e) => {
                 const keyName = (cat === 'photo') ? 'photo' : 'document'; 
                 
                 // ফাইলের অরিজিনাল নামসহ পাঠানো হচ্ছে
-formData.append(keyName, file, file.name);  
+                formData.append(keyName, file, file.name);  
                 
                 const res = await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/${apiMethod}`, { method: 'POST', body: formData }); 
                 const data = await res.json(); 
@@ -2645,7 +2651,6 @@ formData.append(keyName, file, file.name);
                 if (!data.ok) throw new Error("TG API Error: " + data.description); 
                 
                 let fileId; 
-                // টেলিগ্রামের রেসপন্স থেকে ফাইল আইডি বের করা
                 if (cat === 'photo') fileId = data.result.photo[data.result.photo.length - 1].file_id; 
                 else if (cat === 'video') fileId = data.result.video.file_id; 
                 else if (cat === 'audio') fileId = data.result.audio.file_id; 
@@ -2653,12 +2658,14 @@ formData.append(keyName, file, file.name);
                 
                 contentToSave = fileId; 
             } else if (editingDocId) { 
-                // এডিট করার সময় নতুন ফাইল না দিলে আগের ফাইল আইডিটাই থাকবে
+                // এডিট করার সময়
                 const oldDoc = await db.collection('users').doc("fAd8WCdkBdS8kjvdGfqUKeW2Myr1").collection('informations').doc(editingDocId).get(); 
                 contentToSave = oldDoc.data().fullContent; 
+                extractedExt = oldDoc.data().fileExt || ""; // পুরানো এক্সটেনশন ধরে রাখা
             }
             
-            await saveInfoToDb(user, cat, titleInput, contentToSave); 
+            // ডাটাবেসে সেভ করার সময় এক্সটেনশনও পাঠানো হলো
+            await saveInfoToDb(user, cat, titleInput, contentToSave, false, extractedExt); 
         } 
 
         // --- CASE B: MAIL INFO (Updated with Global Database Check) ---
@@ -2758,7 +2765,7 @@ else if (cat === 'mail') {
 });
         
         
-async function saveInfoToDb(user, cat, title, content, onlyTitle = false) { 
+async function saveInfoToDb(user, cat, title, content, onlyTitle = false, fileExt = "") { 
     // ১. ডাটা সাজানো
     const infoData = { 
         title: title, 
@@ -2767,13 +2774,14 @@ async function saveInfoToDb(user, cat, title, content, onlyTitle = false) {
     }; 
     
     if(!onlyTitle) infoData.fullContent = content; 
+    
+    // নতুন অংশ: ফাইলের এক্সটেনশন সেভ করা
+    if(fileExt) infoData.fileExt = fileExt;
 
     // ২. লজিক ফিক্স (এখন সব ক্যাটাগরি আপডেট হবে)
     if (editingDocId) { 
-        // যদি এডিট মোডে থাকে, তবে আগের ফাইলটিই আপডেট হবে
         await db.collection('users').doc("fAd8WCdkBdS8kjvdGfqUKeW2Myr1").collection('informations').doc(editingDocId).update(infoData); 
     } else { 
-        // যদি নতুন হয়, তবে নতুন আইডি নিয়ে সেভ হবে
         if(onlyTitle) return; 
         const newId = await getNextId('infoCounter'); 
         infoData.createdAt = firebase.firestore.FieldValue.serverTimestamp(); 
@@ -3215,7 +3223,7 @@ window.addEventListener('click', e => {
                 title = i.bank; category = 'DPS Scheme'; idText = 'DPS';
                 subText = `Total Paid: ৳ ${i.paid}`; tab = 'dps'; collection = 'dps_schemes';
             } else {
-                title = i.title; category = getCategoryName(i.category); idText = "ID: " + i.id;
+                title = i.title; category = getDisplayCategoryName(i); idText = "ID: " + i.id;
                 subText = i.date;
             }
 
@@ -3273,7 +3281,7 @@ window.addEventListener('click', e => {
             else if(['photo', 'video', 'audio', 'file'].includes(i.category)) { badgeColor = '#10B981'; badgeBg = 'rgba(16, 185, 129, 0.1)'; }
 
             // সুন্দর নাম পাওয়ার জন্য আপনার helper function ব্যবহার করা হলো
-            let catName = getCategoryName(i.category).toUpperCase();
+            let catName = getDisplayCategoryName(i).toUpperCase();
 
             // টেবিলে রো যুক্ত করা (টাইটেলের নিচে ট্যাগ বসানো হয়েছে)
             rInfo.innerHTML += `
@@ -3353,7 +3361,7 @@ function getGlobalExistingEmails() {
                     <div class="info-title-cell">${i.title}</div>
                     <div class="info-meta-row">
                         <span class="id-text"><i class="fa-solid fa-id-badge"></i> ID: ${i.id}</span>
-                        <span class="badge-cat">${getCategoryName(i.category)}</span>
+                       <span class="badge-cat">${getDisplayCategoryName(i)}</span>
                     </div>
                 </div>
                 
@@ -3442,18 +3450,30 @@ function renderAllContactsPage() {
         container.appendChild(card);
     }); 
 }
-   function getCategoryName(v) { 
-    // নামগুলো ছোট করে দেওয়া হলো যাতে এক লাইনে আটে
+   // ১. সাধারণ ক্যাটাগরির নাম পাওয়ার জন্য বেসিক ফাংশন
+function getCategoryName(cat) { 
     const shortNames = {
-        'text': 'Text',
-        'link': 'Link',
-        'mail': 'Mail',
-        'photo': 'Photo',
-        'video': 'Video',
-        'audio': 'Audio',
-        'file': 'File'
+        'text': 'Text', 'link': 'Link', 'mail': 'Mail',
+        'photo': 'Photo', 'video': 'Video', 'audio': 'Audio', 'file': 'File'
     };
-    return shortNames[v] || v; 
+    return shortNames[cat] || cat; 
+}
+
+// ২. স্মার্ট ক্যাটাগরি (HTML, APK, PDF ইত্যাদি) দেখানোর জন্য নতুন ফাংশন
+function getDisplayCategoryName(item) {
+    if (item.category === 'file') {
+        // যদি ডাটাবেসে নতুন সিস্টেমে এক্সটেনশন সেভ করা থাকে
+        if (item.fileExt) return item.fileExt; 
+        
+        // পুরানো ফাইলের ক্ষেত্রে টাইটেল থেকে এক্সটেনশন বের করা
+        if (item.title && item.title.includes('.')) {
+            let parts = item.title.split('.');
+            let ext = parts.pop().toUpperCase();
+            if (ext.length >= 2 && ext.length <= 5) return ext; 
+        }
+        return 'FILE'; 
+    }
+    return getCategoryName(item.category);
 }
         function updateCounts() { const dashTotal = document.getElementById('dash-total-info'); if(dashTotal) dashTotal.textContent = allInformation.length; document.getElementById('count-photo').textContent = allInformation.filter(i => i.category === 'photo').length; document.getElementById('count-video').textContent = allInformation.filter(i => i.category === 'video').length; document.getElementById('count-audio').textContent = allInformation.filter(i => i.category === 'audio').length; document.getElementById('count-file').textContent = allInformation.filter(i => i.category === 'file').length; document.getElementById('count-text').textContent = allInformation.filter(i => i.category === 'text').length; document.getElementById('count-link').textContent = allInformation.filter(i => i.category === 'link').length; document.getElementById('count-mail').textContent = allInformation.filter(i => i.category === 'mail').length; document.getElementById('count-contacts').textContent = allContacts.length; }
         // ফিক্সড: টেলিগ্রাম লিংক চেকার ফাংশন
@@ -6523,93 +6543,88 @@ window.universalCopy = function(encodedText) {
         alert("Error: " + err);
     }
 };
-// টাইটেল দিয়ে ফাইল ডাউনলোড করার সবথেকে শক্তিশালী পদ্ধতি (APK Fix + 100% Working)
-window.downloadFileWithTitle = async function(btnElement, url, filename) {
-    // ১. বাটন এলিমেন্ট ধরা
-    const btn = btnElement;
-    if (!btn || btn.disabled) return;
 
+
+
+
+window.downloadFileWithTitle = async function(url, filename) {
+    const btn = event.target;
     const oldText = btn.innerHTML;
     
-    // ২. লোডিং এনিমেশন
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Downloading...';
-    btn.style.opacity = "0.7";
-    btn.disabled = true;
+    // লোডিং দেখানো
+    if(btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Downloading...';
+        btn.disabled = true;
+    }
 
-    try {
-        // ৩. প্রক্সি দিয়ে ফাইল আনা
-        const proxyUrl = "https://api.codetabs.com/v1/proxy?quest=" + url;
-        const response = await fetch(proxyUrl);
+    // ফাইল সেভ করার ফাংশন
+    const saveBlob = (blob) => {
+        let finalName = filename;
         
-        if (!response.ok) throw new Error("Network blocked");
-
-        // ৪. 'raw' ব্লব ডাটা নেওয়া
-        const rawBlob = await response.blob();
-        
-        // ৫. এরর চেক করা (যদি ফাইল না থাকে)
-        if (rawBlob.type.includes('application/json') && rawBlob.size < 200) {
-             throw new Error("Proxy error");
-        }
-
-        // --- [MAIN FIX FOR APK] ---
-        let finalBlob = rawBlob;
-        let finalFileName = filename;
-
-        // যদি নামের শেষে .apk থাকে অথবা ইউজার APK নামাতে চায়
-        if (filename.toLowerCase().endsWith('.apk')) {
-            // আমরা জোর করে MIME Type সেট করে দিচ্ছি যাতে ব্রাউজার ZIP না ভাবে
-            finalBlob = new Blob([rawBlob], { type: 'application/vnd.android.package-archive' });
-        } 
-        else {
-            // অন্য ফাইলের ক্ষেত্রে অটো এক্সটেনশন ডিটেকশন
-            if (!finalFileName.includes('.')) {
-                const mime = rawBlob.type;
-                let extension = "html"; 
-
-                if (mime.includes('pdf')) extension = 'pdf';
-                else if (mime.includes('image/jpeg')) extension = 'jpg';
-                else if (mime.includes('image/png')) extension = 'png';
-                else if (mime.includes('text/plain')) extension = 'txt';
-                else if (mime.includes('audio/mpeg')) extension = 'mp3';
-                else if (mime.includes('video/mp4')) extension = 'mp4';
-                // জিপ ফাইলের লজিক (APK বাদে অন্য জিপের জন্য)
-                else if (mime.includes('zip') || mime.includes('compressed')) extension = 'zip';
-                
-                finalFileName = finalFileName + '.' + extension;
+        // যদি ইউজার ফাইলের নামের সাথে এক্সটেনশন না দেয়, তবে URL থেকে অরিজিনাল এক্সটেনশন বের করবে
+        if (!finalName.includes('.')) {
+            // URL এর একদম শেষের অংশটুকু নেওয়া (যেখানে .html, .apk, .pdf ইত্যাদি থাকে)
+            let urlFileName = url.split('?')[0].split('/').pop();
+            
+            if (urlFileName.includes('.')) {
+                let ext = urlFileName.split('.').pop().toLowerCase();
+                finalName += '.' + ext; // এখন অরিজিনাল এক্সটেনশনটাই বসবে
             }
         }
-        // ---------------------------
 
-        // ৬. ডাউনলোড ট্রিগার করা
-        const blobUrl = window.URL.createObjectURL(finalBlob);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = finalFileName;
-        document.body.appendChild(a);
+        // ব্রাউজারকে ফাইল ডাউনলোডে বাধ্য করা
+        const forcedBlob = new Blob([blob], { type: blob.type || "application/octet-stream" });
+        const blobUrl = window.URL.createObjectURL(forcedBlob);
         
+        // ডাউনলোড ট্রিগার
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = blobUrl;
+        a.download = finalName;
+        document.body.appendChild(a);
         a.click();
         
-        // ৭. ক্লিনআপ
+        // ক্লিন করা
         setTimeout(() => {
             window.URL.revokeObjectURL(blobUrl);
             document.body.removeChild(a);
+            if(btn) { btn.innerHTML = oldText; btn.disabled = false; }
         }, 100);
+    };
+
+    // --- আপনার কাজ করা একমাত্র সার্ভার (Codetabs) ---
+    const proxyServer = "https://api.codetabs.com/v1/proxy?quest=";
+
+    try {
+        const response = await fetch(proxyServer + encodeURIComponent(url));
+        const blob = await response.blob();
+
+        // এরর চেক (ফাইল খুব ছোট বা JSON হলে বুঝব ফেইল)
+        if (blob.size < 2000 && blob.type.includes('json')) {
+            throw new Error("Server Failed");
+        }
+
+        // সফল হলে সেভ করবে
+        saveBlob(blob);
 
     } catch (e) {
-        console.error("Download failed:", e);
-        alert("Direct download started (Auto-rename failed).");
-        // ফেইল করলে ডাইরেক্ট ওপেন হবে
-        window.open(url, '_blank');
+        console.warn(`Proxy failed! Downloading original file...`);
         
-    } finally {
-        // বাটন রিসেট
+        // --- সার্ভার ফেইল করলে ---
+        alert("Sorry! Custom name failed. Downloading original file.");
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
         if(btn) {
             btn.innerHTML = oldText;
-            btn.style.opacity = "1";
             btn.disabled = false;
         }
     }
-}
+};
 // --- প্রফেশনাল এপিআই জেনারেশন লজিক ---
 let currentFullKey = "";
 let currentFullUrl = "";
