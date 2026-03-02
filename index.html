@@ -6611,7 +6611,43 @@ window.universalCopy = function(encodedText) {
 
 window.downloadFileWithTitle = async function(url, filename) {
     const btn = event.target;
-    const oldText = btn.innerHTML;
+    const oldText = btn ? btn.innerHTML : "Download";
+    
+    // ============================================================
+    // ১. নাম ঠিক করার লজিক (এটি সবার আগেই রান হবে)
+    // ============================================================
+    let finalName = filename;
+    
+    // যদি নামের সাথে এক্সটেনশন না থাকে (যেমন .jpg, .pdf), তবে URL থেকে বের করবে
+    if (!finalName.includes('.')) {
+        let urlFileName = url.split('?')[0].split('/').pop();
+        if (urlFileName.includes('.')) {
+            let ext = urlFileName.split('.').pop().toLowerCase();
+            finalName += '.' + ext;
+        }
+    }
+
+    // ============================================================
+    // ২. KODULAR / APP INVENTOR লজিক (Custom Title সহ)
+    // ============================================================
+    if (window.AppInventor) {
+        // এখানে আমরা টাইটেল (finalName) সহ ডাটা পাঠাচ্ছি
+        // ফরম্যাট: "DOWNLOAD_REQUEST | URL | CUSTOM_FILENAME"
+        var dataString = "DOWNLOAD_REQUEST|" + url + "|" + finalName;
+        
+        // Kodular-এ সিগন্যাল পাঠানো
+        window.AppInventor.setWebViewString(dataString);
+        
+        alert("Download started: " + finalName);
+        
+        // বাটন আবার আগের অবস্থায় ফিরিয়ে আনা
+        if(btn) { btn.innerHTML = oldText; btn.disabled = false; }
+        return; // এখানেই কাজ শেষ, নিচের ব্রাউজার কোড আর রান হবে না
+    }
+
+    // ============================================================
+    // ৩. BROWSER লজিক (Proxy Server দিয়ে Title সহ ডাউনলোড)
+    // ============================================================
     
     // লোডিং দেখানো
     if(btn) {
@@ -6621,32 +6657,16 @@ window.downloadFileWithTitle = async function(url, filename) {
 
     // ফাইল সেভ করার ফাংশন
     const saveBlob = (blob) => {
-        let finalName = filename;
-        
-        // যদি ইউজার ফাইলের নামের সাথে এক্সটেনশন না দেয়, তবে URL থেকে অরিজিনাল এক্সটেনশন বের করবে
-        if (!finalName.includes('.')) {
-            // URL এর একদম শেষের অংশটুকু নেওয়া (যেখানে .html, .apk, .pdf ইত্যাদি থাকে)
-            let urlFileName = url.split('?')[0].split('/').pop();
-            
-            if (urlFileName.includes('.')) {
-                let ext = urlFileName.split('.').pop().toLowerCase();
-                finalName += '.' + ext; // এখন অরিজিনাল এক্সটেনশনটাই বসবে
-            }
-        }
-
-        // ব্রাউজারকে ফাইল ডাউনলোডে বাধ্য করা
         const forcedBlob = new Blob([blob], { type: blob.type || "application/octet-stream" });
         const blobUrl = window.URL.createObjectURL(forcedBlob);
         
-        // ডাউনলোড ট্রিগার
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = blobUrl;
-        a.download = finalName;
+        a.download = finalName; // উপরে তৈরি করা কাস্টম নাম ব্যবহার হবে
         document.body.appendChild(a);
         a.click();
         
-        // ক্লিন করা
         setTimeout(() => {
             window.URL.revokeObjectURL(blobUrl);
             document.body.removeChild(a);
@@ -6654,29 +6674,26 @@ window.downloadFileWithTitle = async function(url, filename) {
         }, 100);
     };
 
-    // --- আপনার কাজ করা একমাত্র সার্ভার (Codetabs) ---
     const proxyServer = "https://api.codetabs.com/v1/proxy?quest=";
 
     try {
         const response = await fetch(proxyServer + encodeURIComponent(url));
         const blob = await response.blob();
 
-        // এরর চেক (ফাইল খুব ছোট বা JSON হলে বুঝব ফেইল)
         if (blob.size < 2000 && blob.type.includes('json')) {
             throw new Error("Server Failed");
         }
-
-        // সফল হলে সেভ করবে
         saveBlob(blob);
 
     } catch (e) {
         console.warn(`Proxy failed! Downloading original file...`);
+        alert("Custom name failed. Downloading original file.");
         
-        // --- সার্ভার ফেইল করলে ---
-        alert("Sorry! Custom name failed. Downloading original file.");
+        // ফলব্যাক (সরাসরি ডাউনলোড)
         const link = document.createElement('a');
         link.href = url;
         link.target = '_blank';
+        link.download = finalName; 
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -6687,7 +6704,8 @@ window.downloadFileWithTitle = async function(url, filename) {
         }
     }
 };
-// --- প্রফেশনাল এপিআই জেনারেশন লজিক ---
+
+// --- প্রফেশনাল এপিআই জেনারেশন লজিক (আপনার আগের কোড) ---
 let currentFullKey = "";
 let currentFullUrl = "";
 let apiState = { key: "hidden", url: "hidden" };
