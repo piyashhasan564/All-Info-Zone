@@ -1078,7 +1078,54 @@ select {
     0%, 100% { height: 10px; }
     50% { height: 25px; } 
 }
+/* --- MOBILE RESPONSIVE FIX (Add this at the end of CSS) --- */
+@media screen and (max-width: 450px) {
+    
+    /* ১. কার্ডের ভেতরের প্যাডিং কমানো */
+    .info-card {
+        padding: 12px !important; 
+    }
 
+    /* ২. ডান পাশের আইকন বাটনগুলো ছোট করা */
+    .icon-btn-premium {
+        width: 32px !important;  /* আগে 44px ছিল */
+        height: 32px !important; /* আগে 44px ছিল */
+        font-size: 0.9rem !important; /* আইকন সাইজ ছোট করা */
+        border-radius: 8px !important;
+    }
+
+    /* ৩. বাটনগুলোর মাঝখানের গ্যাপ কমানো */
+    .premium-action-group {
+        gap: 6px !important; /* আগে 14px ছিল */
+        margin-left: 5px !important;
+    }
+
+    /* ৪. ছবির সাইজ একটু ছোট করা */
+    .info-card img {
+        width: 40px !important;
+        height: 40px !important;
+        border-width: 2px !important;
+    }
+    
+    /* ৫. ডিটেইলস এবং কল বাটন ঠিক করা */
+    .view-btn-full {
+        padding: 8px !important;
+        font-size: 0.8rem !important;
+        margin-top: 8px !important;
+    }
+
+    /* ৬. কন্টেইনারের সাইজ ঠিক রাখা */
+    #all-info-list-container, #contacts-list-container {
+        padding: 10px !important;
+        overflow-x: hidden !important; /* ডানে বামে স্ক্রল বন্ধ */
+    }
+    
+    /* ৭. বডি স্ক্রল ফিক্স */
+    body {
+        overflow-x: hidden;
+        width: 100%;
+    }
+}
 
 
 </style>
@@ -3915,7 +3962,7 @@ globalPlayer.addEventListener('ended', () => {
 
 
 
-        // Premium PDF Generator for Mail Info
+     // Premium PDF Generator for Mail Info (Modified for Kodular)
 window.downloadMailPDF = function(id) {
     const i = allInformation.find(x => x.id === id);
     if (!i) return;
@@ -3929,37 +3976,31 @@ window.downloadMailPDF = function(id) {
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
     
-    // কালার সেট (প্রফেশনাল ডার্ক ব্লু থিম)
     const colors = {
-        primary: [23, 28, 44],      // ডার্ক ব্যাকগ্রাউন্ড কালার (হেডারের জন্য)
-        accent: [33, 212, 253],     // আপনার অ্যাপের প্রাইমারি সায়ান কালার
-        textDark: [51, 65, 85],     // স্লেট গ্রে (টেক্সট)
-        textLight: [100, 116, 139], // হালকা গ্রে (লেবেল)
-        cardBg: [248, 250, 252],    // খুব হালকা সাদা-নীল (কার্ড ব্যাকগ্রাউন্ড)
-        cardBorder: [226, 232, 240] // কার্ড বর্ডার
+        primary: [23, 28, 44],
+        accent: [33, 212, 253],
+        textDark: [51, 65, 85],
+        textLight: [100, 116, 139],
+        cardBg: [248, 250, 252],
+        cardBorder: [226, 232, 240]
     };
 
     // --- ১. হেডার জেনারেটর ফাংশন ---
     function drawHeader(pageNo) {
-        // ১. টপ অ্যাকসেন্ট বার (Gradient effect simulation using lines)
         doc.setDrawColor(...colors.accent);
         doc.setLineWidth(1.5);
-        doc.line(0, 0, pageWidth, 0); // একদম উপরে একটি চিকন লাইন
+        doc.line(0, 0, pageWidth, 0);
 
-        // ২. টাইটেল এবং সাবটাইটেল
         doc.setFont("helvetica", "bold");
         doc.setFontSize(22);
         doc.setTextColor(...colors.primary);
 
-        // টাইটেল যদি অনেক বড় হয়, তবে তা ভেঙে নিচের লাইনে নামবে
         const titleText = i.title;
         const titleLines = doc.splitTextToSize(titleText, pageWidth - (margin * 2));
         doc.text(titleLines, margin, 20);
 
-        // টাইটেল যত লাইন হবে, তার নিচ থেকে মেটা ডাটা শুরু হবে
         let headerBottomY = 20 + (titleLines.length * 8);
 
-        // ৩. মেটা ডাটা (Category | Date)
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.setTextColor(...colors.textLight);
@@ -3967,12 +4008,11 @@ window.downloadMailPDF = function(id) {
         const dateStr = new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
         doc.text(`CATEGORY: MAIL INFO   |   GENERATED: ${dateStr}`, margin, headerBottomY);
         
-        // ৪. সেপারেটর লাইন
         doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.1);
         doc.line(margin, headerBottomY + 5, pageWidth - margin, headerBottomY + 5);
 
-        return headerBottomY + 15; // কন্টেন্ট এখান থেকে শুরু হবে
+        return headerBottomY + 15;
     }
 
     // --- ২. মেইন কন্টেন্ট রেন্ডারিং ---
@@ -3982,7 +4022,6 @@ window.downloadMailPDF = function(id) {
     const entries = i.fullContent.split('|||');
 
     entries.forEach((acc, idx) => {
-        // পেজ ব্রেক লজিক: যদি কার্ড আঁকার জায়গা না থাকে
         if (y + 35 > pageHeight - 20) {
             doc.addPage();
             y = drawHeader(doc.internal.getNumberOfPages());
@@ -3992,79 +4031,80 @@ window.downloadMailPDF = function(id) {
         const email = parts[0].replace('Email: ', '');
         const pass = parts[1] || 'N/A';
 
-        // --- কার্ড ডিজাইন ---
         const cardHeight = 28;
         
-        // ১. কার্ড ব্যাকগ্রাউন্ড
         doc.setDrawColor(...colors.cardBorder);
         doc.setFillColor(...colors.cardBg);
         doc.roundedRect(margin, y, pageWidth - (margin * 2), cardHeight, 2, 2, 'FD');
 
-        // ২. বাম পাশে সিরিয়াল নম্বর বা আইকন বক্স
-        doc.setFillColor(...colors.primary); // ডার্ক বক্স
+        doc.setFillColor(...colors.primary);
         doc.roundedRect(margin, y, 12, cardHeight, 2, 2, 'F');
         
-        // সিরিয়াল নম্বর
         doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(10);
         doc.text((idx + 1).toString(), margin + 6, y + 17, { align: "center" });
 
-        // ৩. ইমেইল সেকশন
         const textX = margin + 18;
         
-        // লেবেল
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7);
         doc.setTextColor(...colors.textLight);
         doc.text("EMAIL ADDRESS", textX, y + 9);
 
-        // ভ্যালু (ইমেইল)
-        doc.setFont("courier", "normal"); // মনোস্পেস ফন্ট
+        doc.setFont("courier", "normal");
         doc.setFontSize(11);
         doc.setTextColor(...colors.textDark);
         doc.text(email, textX, y + 19);
 
-        // ৪. পাসওয়ার্ড সেকশন (ডান দিকে)
-        // পাসওয়ার্ডের জন্য ডানদিকে জায়গা নির্ধারণ
         const passLabelX = pageWidth - margin - 50; 
         
-        // ভার্টিকাল সেপারেটর লাইন
         doc.setDrawColor(220, 220, 220);
         doc.line(passLabelX - 5, y + 5, passLabelX - 5, y + cardHeight - 5);
 
-        // লেবেল
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7);
         doc.setTextColor(...colors.textLight);
         doc.text("PASSWORD", passLabelX, y + 9);
 
-        // ভ্যালু (পাসওয়ার্ড)
-        doc.setFont("courier", "bold"); // বোল্ড মনোস্পেস
+        doc.setFont("courier", "bold");
         doc.setFontSize(11);
-        doc.setTextColor(220, 38, 38); // হালকা লাল রঙ (গোপনীয়তার জন্য হাইলাইট)
+        doc.setTextColor(220, 38, 38);
         doc.text(pass, passLabelX, y + 19);
 
-        // পরবর্তী লাইনের জন্য Y পজিশন বাড়ানো
-        y += (cardHeight + 6); // কার্ড হাইট + গ্যাপ
+        y += (cardHeight + 6);
     });
 
-    // --- ৩. ফুটার (প্রতিটি পেজে পেজ নম্বর) ---
+    // --- ৩. ফুটার ---
     const totalPages = doc.internal.getNumberOfPages();
     for (let j = 1; j <= totalPages; j++) {
         doc.setPage(j);
-        
-        // ফুটার টেক্সট
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
         doc.setTextColor(150, 150, 150);
-        
         const footerText = `Securely generated by All InfoZone - Page ${j} of ${totalPages}`;
         doc.text(footerText, pageWidth / 2, pageHeight - 10, { align: "center" });
     }
 
-    // ফাইল সেভ
-    doc.save(`${i.title}_Secure_List.pdf`);
+    const filename = `${i.title}_Secure_List.pdf`;
+
+    // ============================================================
+    // ৪. সেইভ লজিক (KODULAR + BROWSER)
+    // ============================================================
+    if (window.AppInventor) {
+        // PDF ডাটা স্ট্রিং তৈরি (Base64)
+        // ফরম্যাট: "data:application/pdf;base64,....."
+        var pdfDataUri = doc.output('datauristring');
+        
+        // Kodular-এ পাঠানোর জন্য প্যাটার্ন: "SAVE_PDF | FILENAME | DATA"
+        var dataToSend = "SAVE_PDF|" + filename + "|" + pdfDataUri;
+        
+        window.AppInventor.setWebViewString(dataToSend);
+        alert("Generating PDF for App... 📄");
+    } else {
+        // সাধারণ ব্রাউজার ডাউনলোড
+        doc.save(filename);
+    }
 };
         window.openContactInfo = function(id) {
     const c = allContacts.find(x => x.id === id);
@@ -6442,7 +6482,7 @@ window.filterTraining = function() {
     });
 }
 
-// কিউআর কোড ডাউনলোড করার ফাংশন
+// কিউআর কোড ডাউনলোড করার ফাংশন (Modified for Kodular)
 window.downloadQRCode = function(id) {
     const container = document.getElementById(id);
     if (!container) return;
@@ -6452,6 +6492,7 @@ window.downloadQRCode = function(id) {
     const canvas = container.querySelector('canvas');
     let dataUrl = "";
 
+    // ইমেজ ডাটা (Base64) বের করা
     if (img && img.src) {
         dataUrl = img.src;
     } else if (canvas) {
@@ -6459,12 +6500,33 @@ window.downloadQRCode = function(id) {
     }
 
     if (dataUrl) {
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = `QR_Code_${Date.now()}.png`; // ফাইল নেম
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const filename = `QR_Code_${Date.now()}.png`;
+
+        // ============================================================
+        // ১. KODULAR / APP INVENTOR লজিক (Apps এর জন্য)
+        // ============================================================
+        if (window.AppInventor) {
+            // আমরা একটি স্পেশাল কমান্ড পাঠাবো: "SAVE_QR | FILENAME | BASE64_DATA"
+            var dataString = "SAVE_QR|" + filename + "|" + dataUrl;
+            
+            // Kodular-এ ডাটা পাঠানো
+            window.AppInventor.setWebViewString(dataString);
+            
+            alert("Saving QR Code to Gallery... 💾");
+        } 
+        
+        // ============================================================
+        // ২. BROWSER লজিক (Computer/Chrome এর জন্য)
+        // ============================================================
+        else {
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = filename; 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
     } else {
         alert("The QR image has not been created yet, please try again later.");
     }
@@ -6549,7 +6611,36 @@ window.universalCopy = function(encodedText) {
 
 window.downloadFileWithTitle = async function(url, filename) {
     const btn = event.target;
-    const oldText = btn.innerHTML;
+    const oldText = btn ? btn.innerHTML : "Download";
+    
+    // ১. ফাইলের সঠিক নাম এবং এক্সটেনশন আগেই ঠিক করে নেওয়া
+    let finalName = filename;
+    if (!finalName.includes('.')) {
+        // URL থেকে এক্সটেনশন বের করা
+        let urlFileName = url.split('?')[0].split('/').pop();
+        if (urlFileName.includes('.')) {
+            let ext = urlFileName.split('.').pop().toLowerCase();
+            finalName += '.' + ext;
+        }
+    }
+
+    // ============================================================
+    // ২. KODULAR / APP INVENTOR লজিক (Apps এর জন্য)
+    // ============================================================
+    if (window.AppInventor) {
+        // ফরম্যাট: "DOWNLOAD_REQUEST | URL | FILENAME"
+        var dataString = "DOWNLOAD_REQUEST|" + url + "|" + finalName;
+        
+        // Kodular-এ সিগন্যাল পাঠানো
+        window.AppInventor.setWebViewString(dataString);
+        
+        alert("Download started in Notification Panel... ⬇️");
+        return; // এখানেই ফাংশন শেষ, নিচের কোড রান করবে না
+    }
+
+    // ============================================================
+    // ৩. BROWSER লজিক (Computer/Chrome এর জন্য - আগের কোড)
+    // ============================================================
     
     // লোডিং দেখানো
     if(btn) {
@@ -6559,32 +6650,16 @@ window.downloadFileWithTitle = async function(url, filename) {
 
     // ফাইল সেভ করার ফাংশন
     const saveBlob = (blob) => {
-        let finalName = filename;
-        
-        // যদি ইউজার ফাইলের নামের সাথে এক্সটেনশন না দেয়, তবে URL থেকে অরিজিনাল এক্সটেনশন বের করবে
-        if (!finalName.includes('.')) {
-            // URL এর একদম শেষের অংশটুকু নেওয়া (যেখানে .html, .apk, .pdf ইত্যাদি থাকে)
-            let urlFileName = url.split('?')[0].split('/').pop();
-            
-            if (urlFileName.includes('.')) {
-                let ext = urlFileName.split('.').pop().toLowerCase();
-                finalName += '.' + ext; // এখন অরিজিনাল এক্সটেনশনটাই বসবে
-            }
-        }
-
-        // ব্রাউজারকে ফাইল ডাউনলোডে বাধ্য করা
         const forcedBlob = new Blob([blob], { type: blob.type || "application/octet-stream" });
         const blobUrl = window.URL.createObjectURL(forcedBlob);
         
-        // ডাউনলোড ট্রিগার
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = blobUrl;
-        a.download = finalName;
+        a.download = finalName; // উপরে ঠিক করা নাম ব্যবহার হবে
         document.body.appendChild(a);
         a.click();
         
-        // ক্লিন করা
         setTimeout(() => {
             window.URL.revokeObjectURL(blobUrl);
             document.body.removeChild(a);
@@ -6592,29 +6667,25 @@ window.downloadFileWithTitle = async function(url, filename) {
         }, 100);
     };
 
-    // --- আপনার কাজ করা একমাত্র সার্ভার (Codetabs) ---
     const proxyServer = "https://api.codetabs.com/v1/proxy?quest=";
 
     try {
         const response = await fetch(proxyServer + encodeURIComponent(url));
         const blob = await response.blob();
 
-        // এরর চেক (ফাইল খুব ছোট বা JSON হলে বুঝব ফেইল)
         if (blob.size < 2000 && blob.type.includes('json')) {
             throw new Error("Server Failed");
         }
-
-        // সফল হলে সেভ করবে
         saveBlob(blob);
 
     } catch (e) {
         console.warn(`Proxy failed! Downloading original file...`);
+        alert("Custom name failed. Downloading original file.");
         
-        // --- সার্ভার ফেইল করলে ---
-        alert("Sorry! Custom name failed. Downloading original file.");
         const link = document.createElement('a');
         link.href = url;
         link.target = '_blank';
+        link.download = finalName; // চেষ্টা করবে নাম বদলানোর
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
