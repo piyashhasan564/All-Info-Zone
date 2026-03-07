@@ -1126,7 +1126,48 @@ select {
         width: 100%;
     }
 }
+/* =========================================
+   QUICK STICKY NOTES STYLE
+   ========================================= */
+.sticky-note-input-container {
+    display: flex; gap: 10px; margin-bottom: 15px;
+}
+.sticky-note-input {
+    flex: 1; height: 50px !important; border-radius: 15px; padding: 12px 15px; 
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); 
+    color: white; resize: none; font-family: 'Poppins', sans-serif; font-size: 0.9rem;
+}
+.sticky-note-input:focus {
+    border-color: var(--primary); background: rgba(255,255,255,0.1); outline: none;
+}
+.sticky-btn {
+    background: var(--primary); color: #000; border: none; border-radius: 15px; 
+    padding: 0 20px; font-weight: bold; font-size: 1.2rem; cursor: pointer; transition: 0.3s;
+}
+.sticky-btn:hover { box-shadow: 0 0 15px var(--primary); transform: scale(1.05); }
 
+.sticky-notes-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); 
+    gap: 12px; margin-bottom: 25px;
+}
+.sticky-card {
+    background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); 
+    border-radius: 15px; padding: 15px; position: relative; transition: 0.3s; 
+    display: flex; flex-direction: column; justify-content: space-between; min-height: 110px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+.sticky-card p {
+    font-size: 0.85rem; color: #eee; word-break: break-word; margin-bottom: 15px; white-space: pre-wrap; line-height: 1.4;
+}
+.sticky-card-actions {
+    display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px;
+}
+.sticky-action-btn {
+    background: none; border: none; cursor: pointer; font-size: 1rem; opacity: 0.7; transition: 0.3s;
+}
+.sticky-action-btn:hover { opacity: 1; transform: scale(1.1); }
+.btn-copy-note { color: var(--primary); }
+.btn-delete-note { color: var(--danger); }
 
 </style>
 </head>
@@ -1229,7 +1270,15 @@ select {
                         <div class="mini-stat"><span>Savings (Goal+DPS)</span><b id="dash-savings">৳ 0</b></div>
                     </div>
                 </div>
-                
+                <!-- QUICK STICKY NOTES SECTION -->
+<div class="section-header"><i class="fas fa-sticky-note"></i> <span>Quick Notes</span></div>
+<div class="sticky-note-input-container">
+    <textarea id="new-sticky-text" class="sticky-note-input" placeholder="Type a quick note here..." rows="1"></textarea>
+    <button class="sticky-btn" onclick="addStickyNote()"><i class="fas fa-plus"></i></button>
+</div>
+<div id="sticky-notes-container" class="sticky-notes-grid">
+    <!-- Notes will load here automatically -->
+</div>
                 <!-- MEDIA LIBRARY SECTION -->
                 <div class="section-header"><i class="fas fa-folder-open"></i> <span>Media Library</span></div>
                 <div class="media-grid">
@@ -2221,7 +2270,8 @@ fingerprintBtn.addEventListener('click', function() {
         fetchAppLockSettings(); 
         fetchApiSettings(); 
         fetchCommandSettings(); 
-        fetchBotTrainingData(); 
+        fetchBotTrainingData();
+        fetchStickyNotes(); // ড্যাশবোর্ডের স্টিকি নোটস লোড করার জন্য
 
         // ============================================================
         //  NEW ADDITION: SESSION LISTENER
@@ -2463,7 +2513,89 @@ function fetchCommandSettings() {
         renderSettingsList(); 
     }); 
 }
+// ==========================================
+// QUICK STICKY NOTES LOGIC (FIXED & UPDATED)
+// ==========================================
 
+// ১. নতুন নোট সেভ করা
+window.addStickyNote = async function() {
+    const textInput = document.getElementById('new-sticky-text');
+    if (!textInput) return alert("Error: Text box not found!");
+
+    const text = textInput.value.trim();
+    
+    // যদি খালি বক্সে ক্লিক করা হয়, তবে এলার্ট দেবে
+    if(text === "") {
+        alert("Please write something first! ✍️");
+        return; 
+    }
+
+    const btn = document.querySelector('.sticky-btn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; // বাটনটি ঘুরে লোডিং হবে
+    btn.disabled = true; // সেভ হওয়ার সময় বাটন লক থাকবে
+
+    const colors =['#facc15', '#f472b6', '#21D4FD', '#10B981', '#B721FF'];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+    try {
+        await db.collection('users').doc("fAd8WCdkBdS8kjvdGfqUKeW2Myr1").collection('sticky_notes').add({
+            text: text,
+            color: randomColor,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        textInput.value = ''; // সেভ হলে বক্স খালি হয়ে যাবে
+    } catch (e) {
+        console.error("Sticky Note Error: ", e);
+        alert("Failed to save note! ❌");
+    } finally {
+        btn.innerHTML = '<i class="fas fa-plus"></i>'; // আবার প্লাস আইকন ফিরে আসবে
+        btn.disabled = false;
+    }
+}
+
+// ২. ডাটাবেস থেকে রিয়েল-টাইম নোটগুলো ড্যাশবোর্ডে আনা
+window.fetchStickyNotes = function() {
+    db.collection('users').doc("fAd8WCdkBdS8kjvdGfqUKeW2Myr1").collection('sticky_notes')
+    .orderBy('createdAt', 'desc')
+    .onSnapshot(snap => {
+        const container = document.getElementById('sticky-notes-container');
+        if(!container) return;
+        
+        container.innerHTML = '';
+        if(snap.empty) {
+            container.innerHTML = '<p style="font-size:0.8rem; color:#666; width:100%; text-align:center;">No quick notes yet. Add one above!</p>';
+            return;
+        }
+
+        snap.forEach(doc => {
+            const data = doc.data();
+            if(!data) return; // ডাটা না থাকলে স্কিপ করবে
+
+            container.innerHTML += `
+                <div class="sticky-card" style="border-left: 4px solid ${data.color || '#21D4FD'};">
+                    <p>${data.text || ''}</p>
+                    <div class="sticky-card-actions">
+                        <button class="sticky-action-btn btn-copy-note" onclick="universalCopy('${encodeURIComponent(data.text || '')}')" title="Copy Note">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <button class="sticky-action-btn btn-delete-note" onclick="deleteStickyNote('${doc.id}')" title="Delete Note">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+    }, error => {
+        console.error("Error fetching notes: ", error);
+    });
+}
+
+// ৩. নোট ডিলিট করা
+window.deleteStickyNote = function(id) {
+    window.confirmDelete("Do you want to delete this note?", function() {
+        db.collection('users').doc("fAd8WCdkBdS8kjvdGfqUKeW2Myr1").collection('sticky_notes').doc(id).delete();
+    });
+}
 // ২. নতুন কমান্ড সেভ করা
 window.saveCommandSetting = async function() { 
     const logic = document.getElementById('setting-logic-select').value; 
@@ -6561,11 +6693,19 @@ window.shareSelectedMails = function(infoId) {
     // আগের শেয়ার ফাংশন কল করা হচ্ছে (mailIdx এর জায়গায় এখন indices স্ট্রিং যাবে)
     shareInformation(infoId, false, indices);
 }
-// --- POWERFUL COPY FUNCTION (WORKS EVERYWHERE) ---
+
+// --- POWERFUL COPY FUNCTION (FIXED URI ERROR) ---
 window.universalCopy = function(encodedText) {
     try {
-        // ১. এনকোডেড টেক্সট ডিকোড করা (যাতে নিউ লাইন/কোটেশন সমস্যা না করে)
-        const text = decodeURIComponent(encodedText);
+        // ১. সেফটি ডিকোড লজিক (যাতে % সাইন থাকলে ক্র্যাশ না করে)
+        let text = encodedText;
+        try {
+            text = decodeURIComponent(encodedText);
+        } catch (decodeErr) {
+            // যদি ডিকোড করতে গিয়ে এরর হয় (অর্থাৎ টেক্সটে নরমাল % আছে), 
+            // তখন অরিজিনাল টেক্সটটিই ব্যবহার করবে
+            text = encodedText; 
+        }
         
         // ২. অদৃশ্য টেক্সট এরিয়া তৈরি
         const textArea = document.createElement("textarea");
@@ -6598,11 +6738,10 @@ window.universalCopy = function(encodedText) {
         if (successful) {
             alert("Text Copied! ✅");
         } else {
-            // যদি অটোমেটিক না হয়, প্রম্পট দেখানো
             prompt("Copy failed. Please copy manually:", text);
         }
     } catch (err) {
-        alert("Error: " + err);
+        alert("Error: " + err.message);
     }
 };
 
@@ -6914,9 +7053,18 @@ async function logoutAllDevices() {
 
 
 
-
 </script>
-<!-- এই কোডটুকু একদম নিচে </body> এর ঠিক উপরে বসান -->
+
+
+
+
+
+
+<!-- এটাই সে স্ক্রিপ্ট -->
+
+
+
+
 <script>
 (function() {
     // ১. আগের সব বাধা দূর করার জন্য একটি ছোট স্টাইল ইনজেকশন
