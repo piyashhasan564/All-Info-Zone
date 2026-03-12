@@ -2452,6 +2452,33 @@ window.saveWifiCustomer = async function() {
 
     if (!name || !pkg || !mac) return alert("Please fill all fields properly!");
 
+    // --- MAC Duplicate Check Logic ---
+    const existingCustomer = window.wifiCustomers.find(c => c.mac === mac);
+    if (existingCustomer) {
+        let start = new Date(existingCustomer.startDate);
+        let end = new Date(start); 
+        end.setDate(start.getDate() + 30);
+        let today = new Date();
+        let daysLeft = Math.ceil((end - today) / (1000 * 3600 * 24));
+        
+        let isDeactivated = existingCustomer.isDeactivated === true;
+        if (isDeactivated) { daysLeft = existingCustomer.pausedDaysLeft || 0; }
+        
+        // স্ট্যাটাস আপডেট: ACTIVE, Expire, PAUSED
+        let status = "";
+        if (isDeactivated) {
+            status = `PAUSED (${daysLeft} days left)`;
+        } else if (daysLeft <= 0) {
+            status = "Expire";
+        } else {
+            status = `ACTIVE (${daysLeft} days left)`;
+        }
+
+        alert(`⚠️ This MAC Address is already saved!\n\n👤 Name: ${existingCustomer.name}\n📦 Package: ${existingCustomer.package.replace("Home - ", "").replace("Outdoor - ", "")}\n⏳ Status: ${status}`);
+        return;
+    }
+    // ----------------------------------
+
     const btn = event.target;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     btn.disabled = true;
@@ -2649,6 +2676,33 @@ window.submitWfModify = async function() {
     const mac = getMacValue('modMacContainer');
 
     if(!mac) return alert("Invalid MAC");
+
+    // --- MAC Duplicate Check Logic ---
+    const existingCustomer = window.wifiCustomers.find(c => c.mac === mac && c.id !== window.activeWfId);
+    if (existingCustomer) {
+        let start = new Date(existingCustomer.startDate);
+        let end = new Date(start); 
+        end.setDate(start.getDate() + 30);
+        let today = new Date();
+        let daysLeft = Math.ceil((end - today) / (1000 * 3600 * 24));
+        
+        let isDeactivated = existingCustomer.isDeactivated === true;
+        if (isDeactivated) { daysLeft = existingCustomer.pausedDaysLeft || 0; }
+        
+        // স্ট্যাটাস আপডেট: ACTIVE, Expire, PAUSED
+        let status = "";
+        if (isDeactivated) {
+            status = `PAUSED (${daysLeft} days left)`;
+        } else if (daysLeft <= 0) {
+            status = "Expire";
+        } else {
+            status = `ACTIVE (${daysLeft} days left)`;
+        }
+
+        alert(`⚠️ MAC Address is already used by another customer!\n\n👤 Name: ${existingCustomer.name}\n📦 Package: ${existingCustomer.package.replace("Home - ", "").replace("Outdoor - ", "")}\n⏳ Status: ${status}`);
+        return;
+    }
+    // -------------------------------------------------------
 
     await db.collection('users').doc("fAd8WCdkBdS8kjvdGfqUKeW2Myr1").collection('wifi_customers').doc(window.activeWfId).update({
         name, type, package: pkg, mac, startDate: new Date().toISOString(), isDeactivated: false
