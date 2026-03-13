@@ -1956,10 +1956,30 @@ select {
 <!-- WIFI MANAGER MODAL -->
 <div class="modal" id="wifi-manager-modal" style="z-index: 6500;">
     <div class="modal-content glass-ui" style="max-width: 500px; padding: 25px; max-height: 85vh; overflow-y: auto;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">
-            <h3 style="color:var(--primary); margin:0; font-size: 1.3rem;"><i class="fas fa-wifi"></i> WIFI MANAGER</h3>
-            <button onclick="document.getElementById('wifi-manager-modal').style.display='none'" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">&times;</button>
+        <<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px; flex-wrap: wrap; gap: 8px;">
+    
+    <h3 style="color:var(--primary); margin:0; font-size: 1.2rem; display: flex; align-items: center;">
+        <i class="fas fa-wifi" style="margin-right: 8px;"></i> WIFI
+    </h3>
+
+    <!-- Data Counters (Your highlighted area) -->
+    <div style="display: flex; gap: 8px; flex: 1; justify-content: flex-end; margin-right: 5px;">
+        <div style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="font-size: 0.55rem; color: #aaa; text-transform: uppercase; font-weight: bold;">Total</div>
+            <div id="wf-total-count" style="font-size: 0.9rem; color: #fff; font-weight: bold; line-height: 1.2;">0</div>
         </div>
+        <div style="background: rgba(16, 185, 129, 0.1); padding: 4px 10px; border-radius: 8px; text-align: center; border: 1px solid rgba(16, 185, 129, 0.3);">
+            <div style="font-size: 0.55rem; color: #10B981; text-transform: uppercase; font-weight: bold;">Active</div>
+            <div id="wf-active-count" style="font-size: 0.9rem; color: #10B981; font-weight: bold; line-height: 1.2;">0</div>
+        </div>
+        <div style="background: rgba(239, 68, 68, 0.1); padding: 4px 10px; border-radius: 8px; text-align: center; border: 1px solid rgba(239, 68, 68, 0.3);">
+            <div style="font-size: 0.55rem; color: #EF4444; text-transform: uppercase; font-weight: bold;">Expired</div>
+            <div id="wf-expired-count" style="font-size: 0.9rem; color: #EF4444; font-weight: bold; line-height: 1.2;">0</div>
+        </div>
+    </div>
+
+    <button onclick="document.getElementById('wifi-manager-modal').style.display='none'" style="background:none; border:none; color:white; font-size:1.6rem; cursor:pointer; padding: 0;">&times;</button>
+</div>
 
         <!-- Tabs -->
         <div style="display: flex; gap: 10px; margin-bottom: 25px;">
@@ -1977,18 +1997,11 @@ select {
                     <option value="Home">Home Customer</option>
                     <option value="Outdoor">Outdoor Customer</option>
                 </select>
-                <select id="wfPackage" style="flex: 1;"></select>
-            </div>
-            
-            <label style="font-size: 0.8rem; color: #aaa;">MAC Address</label>
-            <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 12px; margin-bottom: 20px;" id="wfMacContainer">
-                <input type="text" class="wf-mac-box" maxlength="2" placeholder="00"> <span style="color:#666">-</span>
-                <input type="text" class="wf-mac-box" maxlength="2" placeholder="00"> <span style="color:#666">-</span>
-                <input type="text" class="wf-mac-box" maxlength="2" placeholder="00"> <span style="color:#666">-</span>
-                <input type="text" class="wf-mac-box" maxlength="2" placeholder="00"> <span style="color:#666">-</span>
-                <input type="text" class="wf-mac-box" maxlength="2" placeholder="00"> <span style="color:#666">-</span>
-                <input type="text" class="wf-mac-box" maxlength="2" placeholder="00">
-            </div>
+                <select id="wfPackage" style="flex: 1;" onchange="handlePackageChange()"></select>
+</div>
+
+<!-- এখানে ডায়নামিকভাবে MAC বক্সগুলো আসবে -->
+<div id="dynamic-mac-wrapper"></div>
 
             <button class="btn" onclick="saveWifiCustomer()" style="width: 100%; background: var(--success); color: black; font-weight: bold; padding: 15px; font-size: 1.1rem;"><i class="fas fa-plus-circle"></i> ADD CUSTOMER</button>
         </div>
@@ -2325,9 +2338,8 @@ window.wfPackages = {
 
 window.openWifiManager = function() {
     document.getElementById('wifi-manager-modal').style.display = 'flex';
-    window.updateWfPackage();
-    window.setupWfMacInputs('wfMacContainer');
-    window.setupWfMacInputs('modMacContainer');
+    window.updateWfPackage(); // এটি অটোমেটিক MAC বক্স তৈরি করবে
+    window.setupWfMacInputs('modMacContainer'); // Modify এর জন্য রেখে দিন
     window.fetchWifiCustomers();
 };
 
@@ -2366,8 +2378,44 @@ window.updateWfPackage = function() {
     window.wfPackages[type].forEach(pkg => {
         pkgSelect.innerHTML += `<option value="${pkg}">${pkg}</option>`;
     });
+    
+    // ডিফল্টভাবে প্রথমটি সিলেক্ট করে ডায়নামিক বক্স কল করা
+    if (window.wfPackages[type].length > 0) {
+        pkgSelect.value = window.wfPackages[type][0];
+        window.handlePackageChange();
+    }
 };
+window.handlePackageChange = function() {
+    const pkg = document.getElementById('wfPackage').value || '';
+    let count = 1; // ডিফল্ট ১টি বক্স
+    
+    // প্যাকেজের নামের উপর ভিত্তি করে বক্সের সংখ্যা নির্ধারণ
+    if (pkg.includes('2 Device')) count = 2;
+    else if (pkg.includes('3 Device')) count = 3;
 
+    const wrapper = document.getElementById('dynamic-mac-wrapper');
+    wrapper.innerHTML = '';
+
+    for (let i = 0; i < count; i++) {
+        let labelText = count > 1 ? `MAC Address (Device ${i + 1})` : `MAC Address`;
+        wrapper.innerHTML += `
+            <label style="font-size: 0.8rem; color: #aaa;">${labelText}</label>
+            <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 12px; margin-bottom: 15px;" id="wfMacContainer_${i}" class="multi-mac-container">
+                <input type="text" class="wf-mac-box" maxlength="2" placeholder="00"> <span style="color:#666">-</span>
+                <input type="text" class="wf-mac-box" maxlength="2" placeholder="00"> <span style="color:#666">-</span>
+                <input type="text" class="wf-mac-box" maxlength="2" placeholder="00"> <span style="color:#666">-</span>
+                <input type="text" class="wf-mac-box" maxlength="2" placeholder="00"> <span style="color:#666">-</span>
+                <input type="text" class="wf-mac-box" maxlength="2" placeholder="00"> <span style="color:#666">-</span>
+                <input type="text" class="wf-mac-box" maxlength="2" placeholder="00">
+            </div>
+        `;
+    }
+
+    // নতুন বক্সগুলোর জন্য ইভেন্ট চালু করা
+    for (let i = 0; i < count; i++) {
+        window.setupWfMacInputs(`wfMacContainer_${i}`);
+    }
+};
 window.updateModPackage = function() {
     const type = document.getElementById('modWfType').value;
     const pkgSelect = document.getElementById('modWfPackage');
@@ -2436,10 +2484,48 @@ function getMacValue(containerId) {
     });
     return valid ? mac.slice(0, -1) : null;
 }
+window.updateWifiStats = function() {
+    let total = window.wifiCustomers.length;
+    let active = 0;
+    let expiredOrDeact = 0;
 
+    window.wifiCustomers.forEach(c => {
+        let start = new Date(c.startDate);
+        let end = new Date(start); 
+        end.setDate(start.getDate() + 30);
+        let today = new Date();
+        let daysLeft = Math.ceil((end - today) / (1000 * 3600 * 24));
+        
+        let isExpired = daysLeft <= 0;
+        let isDeactivated = c.isDeactivated === true;
+
+        if (isDeactivated) {
+            isExpired = false; // পজ থাকলে এক্সপায়ার্ড ধরা হয় না, কিন্তু ইনঅ্যাকটিভ ধরা হয়
+        }
+
+        // লজিক চেক
+        if (!isExpired && !isDeactivated) {
+            active++;
+        } else {
+            expiredOrDeact++;
+        }
+    });
+
+    // HTML এ ডাটা বসানো
+    const elTotal = document.getElementById('wf-total-count');
+    const elActive = document.getElementById('wf-active-count');
+    const elExpired = document.getElementById('wf-expired-count');
+
+    if (elTotal) elTotal.innerText = total;
+    if (elActive) elActive.innerText = active;
+    if (elExpired) elExpired.innerText = expiredOrDeact;
+};
 window.fetchWifiCustomers = function() {
     db.collection('users').doc("fAd8WCdkBdS8kjvdGfqUKeW2Myr1").collection('wifi_customers').orderBy("startDate", "desc").onSnapshot(snap => {
         window.wifiCustomers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+         // --- NEW LINE ADDED HERE ---
+        window.updateWifiStats(); 
+        
         if(document.getElementById('wifi-list-sec').style.display === 'block') window.renderWifiList();
     });
 };
@@ -2448,53 +2534,97 @@ window.saveWifiCustomer = async function() {
     const name = document.getElementById('wfName').value.trim();
     const type = document.getElementById('wfType').value;
     const pkg = document.getElementById('wfPackage').value;
-    const mac = getMacValue('wfMacContainer');
 
-    if (!name || !pkg || !mac) return alert("Please fill all fields properly!");
+    // ১. ডায়নামিক ভাবে তৈরি হওয়া সব MAC বক্সের ডাটা কালেক্ট করা
+    const macContainers = document.querySelectorAll('.multi-mac-container');
+    let macList = [];
+    let isMacInvalid = false;
 
-    // --- MAC Duplicate Check Logic ---
-    const existingCustomer = window.wifiCustomers.find(c => c.mac === mac);
-    if (existingCustomer) {
-        let start = new Date(existingCustomer.startDate);
-        let end = new Date(start); 
-        end.setDate(start.getDate() + 30);
-        let today = new Date();
-        let daysLeft = Math.ceil((end - today) / (1000 * 3600 * 24));
-        
-        let isDeactivated = existingCustomer.isDeactivated === true;
-        if (isDeactivated) { daysLeft = existingCustomer.pausedDaysLeft || 0; }
-        
-        // স্ট্যাটাস আপডেট: ACTIVE, Expire, PAUSED
-        let status = "";
-        if (isDeactivated) {
-            status = `PAUSED (${daysLeft} days left)`;
-        } else if (daysLeft <= 0) {
-            status = "Expire";
+    macContainers.forEach(container => {
+        const mac = getMacValue(container.id);
+        if (!mac) {
+            isMacInvalid = true; // যদি কোনো একটি বক্সও অসম্পূর্ণ থাকে
         } else {
-            status = `ACTIVE (${daysLeft} days left)`;
+            macList.push(mac);
         }
+    });
 
-        alert(`⚠️ This MAC Address is already saved!\n\n👤 Name: ${existingCustomer.name}\n📦 Package: ${existingCustomer.package.replace("Home - ", "").replace("Outdoor - ", "")}\n⏳ Status: ${status}`);
-        return;
+    // ভ্যালিডেশন চেক
+    if (!name || !pkg || isMacInvalid || macList.length === 0) {
+        return alert("Please fill all fields properly! Verify all MAC addresses.");
     }
-    // ----------------------------------
 
+    // ২. ইউজার একই ফর্মে ভুল করে একই MAC দুইবার দিয়েছে কিনা চেক করা
+    const uniqueMacs = new Set(macList);
+    if (uniqueMacs.size !== macList.length) {
+        return alert("⚠️ You entered the exact same MAC address in multiple boxes!");
+    }
+
+    // ৩. ডাটাবেসের সাথে Duplicate Check (প্রতিটি MAC এর জন্য)
+    let duplicateErrorMsg = null;
+    
+    for (let inputMac of macList) {
+        const existingCustomer = window.wifiCustomers.find(c => {
+            // যদি ডাটাবেজে আগে থেকে Array হিসেবে সেভ থাকে অথবা String হিসেবে থাকে
+            if (Array.isArray(c.mac)) {
+                return c.mac.includes(inputMac);
+            } else {
+                return c.mac === inputMac;
+            }
+        });
+
+        if (existingCustomer) {
+            let start = new Date(existingCustomer.startDate);
+            let end = new Date(start); 
+            end.setDate(start.getDate() + 30);
+            let today = new Date();
+            let daysLeft = Math.ceil((end - today) / (1000 * 3600 * 24));
+            
+            let isDeactivated = existingCustomer.isDeactivated === true;
+            if (isDeactivated) { daysLeft = existingCustomer.pausedDaysLeft || 0; }
+            
+            // স্ট্যাটাস আপডেট: ACTIVE, Expire, PAUSED
+            let status = "";
+            if (isDeactivated) {
+                status = `PAUSED (${daysLeft} days left)`;
+            } else if (daysLeft <= 0) {
+                status = "Expire";
+            } else {
+                status = `ACTIVE (${daysLeft} days left)`;
+            }
+
+            duplicateErrorMsg = `⚠️ This MAC Address (${inputMac}) is already saved!\n\n👤 Name: ${existingCustomer.name}\n📦 Package: ${existingCustomer.package.replace("Home - ", "").replace("Outdoor - ", "")}\n⏳ Status: ${status}`;
+            break; // একটি ডুপ্লিকেট পেলেই লুপ থামিয়ে এরর মেসেজ সেট করে দেবে
+        }
+    }
+
+    if (duplicateErrorMsg) {
+        return alert(duplicateErrorMsg); // ডুপ্লিকেট থাকলে এখানেই আটকে যাবে
+    }
+
+    // ৪. সব ঠিক থাকলে ডাটাবেজে সেভ করা
     const btn = event.target;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     btn.disabled = true;
 
     try {
         await db.collection('users').doc("fAd8WCdkBdS8kjvdGfqUKeW2Myr1").collection('wifi_customers').add({
-            name, type, package: pkg, mac, 
+            name, 
+            type, 
+            package: pkg, 
+            mac: macList, // এখানে Array হিসেবে সব MAC একসাথে সেভ হবে
             startDate: new Date().toISOString(),
             isDeactivated: false
         });
-        alert("Customer Added!");
+        alert("Customer Added Successfully!");
+        
+        // ফর্ম রিসেট করা
         document.getElementById('wfName').value = '';
-        document.querySelectorAll('#wfMacContainer input').forEach(i => i.value = '');
+        document.getElementById('dynamic-mac-wrapper').querySelectorAll('input').forEach(i => i.value = '');
+        
         window.switchWifiTab('list');
     } catch(e) { 
-        alert("Error saving data!"); 
+        alert("Error saving data: " + e.message); 
     } finally {
         btn.innerHTML = '<i class="fas fa-plus-circle"></i> ADD CUSTOMER';
         btn.disabled = false;
@@ -2568,6 +2698,23 @@ window.renderWifiList = function() {
         let cleanPackage = c.package.replace("Home - ", "").replace("Outdoor - ", "");
         let searchTag = search ? `<span style="font-size:10px; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:10px; margin-left:5px; color:#aaa;">${c.type}</span>` : '';
 
+        // ==========================================
+        //  NEW: MAC Array লজিক (আলাদা বক্স তৈরি করার জন্য)
+        // ==========================================
+        let macArray = Array.isArray(c.mac) ? c.mac : [c.mac]; // পুরনো ডাটা (স্ট্রিং) থাকলে সেটাও Array করে নেবে
+        let macBoxesHtml = '';
+        
+        macArray.forEach(macStr => {
+            if(macStr) { // যদি খালি না থাকে
+                macBoxesHtml += `
+                <div class="wf-mac-display" onclick="navigator.clipboard.writeText('${macStr}'); alert('MAC Copied!')" style="margin: 5px 0;">
+                    <span>${macStr}</span>
+                    <i class="far fa-copy" style="color:#aaa;"></i>
+                </div>`;
+            }
+        });
+        // ==========================================
+
         container.innerHTML += `
             <div class="wf-card ${statusClass}">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -2575,10 +2722,8 @@ window.renderWifiList = function() {
                 </div>
                 <div style="font-size:0.85rem; color:var(--primary); margin: 3px 0 10px 0;">${cleanPackage}</div>
                 
-                <div class="wf-mac-display" onclick="navigator.clipboard.writeText('${c.mac}'); alert('MAC Copied!')">
-                    <span>${c.mac}</span>
-                    <i class="far fa-copy" style="color:#aaa;"></i>
-                </div>
+                <!-- এখানে ডায়নামিক MAC বক্সগুলো বসবে -->
+                ${macBoxesHtml}
 
                 <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#aaa; margin-top:10px;">
                     <span>Start: ${start.toLocaleDateString()}</span>
