@@ -1282,7 +1282,7 @@ select {
     <button class="logout-btn" id="logout-button" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
 </div>
     </div>
-
+ 
     <div class="content" id="content">
         <!-- DASHBOARD PAGE -->
         <div id="dashboard-page" class="page-content active">
@@ -2638,9 +2638,23 @@ window.renderWifiList = function() {
 
     const filtered = window.wifiCustomers.filter(c => {
         if(search) {
+            // নাম এবং প্যাকেজ ম্যাচিং
             let nameMatch = c.name && c.name.toLowerCase().includes(search);
             let pkgMatch = c.package && c.package.toLowerCase().includes(search);
-            return nameMatch || pkgMatch;
+            
+            // MAC অ্যাড্রেস ম্যাচিং লজিক
+            let macMatch = false;
+            if (c.mac) {
+                if (Array.isArray(c.mac)) {
+                    // যদি একাধিক MAC থাকে (Array), তবে চেক করবে কোনো একটির সাথে মিলে কি না
+                    macMatch = c.mac.some(m => m.toLowerCase().includes(search));
+                } else {
+                    // যদি একটি মাত্র MAC থাকে (String)
+                    macMatch = c.mac.toLowerCase().includes(search);
+                }
+            }
+            
+            return nameMatch || pkgMatch || macMatch;
         }
         return c.type === window.currentWfFilter;
     });
@@ -2648,6 +2662,8 @@ window.renderWifiList = function() {
     if(filtered.length === 0) {
         container.innerHTML = '<p style="text-align:center; color:#888;">No customers found.</p>'; return;
     }
+    
+    
 
     filtered.forEach(c => {
         let start = new Date(c.startDate);
